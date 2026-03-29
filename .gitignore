@@ -1,0 +1,15 @@
+.pio/
+.vscode/
+*.o
+*.bin
+*.elf
+sdcard_28/
+sdcard_builtin/
+sdcard_preview/
+sdcard_final/
+sdcard/
+debug_screenshot.png
+preview_*.png
+.DS_Store
+__pycache__/
+*.pyc
