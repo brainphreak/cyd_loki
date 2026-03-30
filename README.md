@@ -117,11 +117,25 @@ Special thanks to [HaleHound-CYD](https://github.com/JesseCHale/HaleHound-CYD) b
 ## Installation
 
 ### Requirements
-- [PlatformIO](https://platformio.org/) (CLI or VSCode extension)
-- ESP32 CYD board
+- ESP32 CYD board (3.5" E32R35T currently supported)
 - MicroSD card (optional, for themes and loot storage)
+- USB cable for flashing
 
-### Build & Flash
+### Quick Flash (No Install Required)
+
+Pre-built binaries are available in the `binaries/` folder.
+
+1. Open [ESP Web Flasher](https://esp.huhn.me) in **Chrome**, **Edge**, or **Opera** (Firefox/Safari not supported)
+2. Click **Connect** and select your board's serial port
+3. Set address to: **0x0**
+4. Click **Choose File** and select `loki-cyd-e32r35t-FULL.bin`
+5. Click **Program**
+6. Wait for completion, then power cycle the board
+
+### Build from Source
+
+Requires [PlatformIO](https://platformio.org/) (CLI or VSCode extension).
+
 ```bash
 # Clone
 git clone https://github.com/brainphreak/cyd_loki.git
