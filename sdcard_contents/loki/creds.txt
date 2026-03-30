@@ -1,92 +1,11 @@
-# Loki CYD Wordlist
+# Loki CYD — Custom Wordlist
+#
+# These credentials are IN ADDITION to the 242 built-in combinations.
+# The firmware already tries 11 usernames x 20 passwords automatically.
+# Only add target-specific or unusual credentials here.
+#
 # Format: username:password
-# Lines starting with # are comments
-# These SUPPLEMENT the built-in 242 credential combinations.
-# The built-in list tries all 11 users x 20 passwords automatically.
-# Add extras here for specific targets.
-
-# === Built-in Users (for reference) ===
-# admin, root, user, guest, test, ftp, anonymous, Administrator, pi, ubuntu, kali
-
-# === Built-in Passwords (for reference) ===
-# admin, password, 123456, root, guest, test, 1234, 12345, password123, admin123
-# changeme, letmein, welcome, qwerty, abc123, raspberry, kali, toor, ubuntu, alpine
-
-# === Additional IoT / Camera Defaults ===
-admin:hikvision
-admin:Hikvision
-admin:12345678
-admin:hik12345
-admin:888888
-admin:666666
-admin:dahua
-admin:Dahua
-admin:xmhdipc
-admin:jvbzd
-admin:reolink
-admin:amcrest
-admin:foscam
-admin:000000
-admin:00000000
-admin:lorex
-admin:swann
-admin:dlink
-admin:tplink
-admin:admin@123
-admin:Admin123
-Admin:
-
-# === Camera / DVR (Chinese generic) ===
-default:tluafed
-root:xc3511
-root:vizxv
-root:hi3518
-root:juantech
-root:cat1029
-root:anko
-root:GM8182
-root:icatch99
-888888:888888
-666666:666666
-
-# === Network Equipment ===
-admin:admin1
-admin:supervisor
-admin:system
-admin:1111
-admin:4321
-admin:camera
-admin:video
-admin:7ujMko0admin
-admin:tlJwpbo6
-ubnt:ubnt
-support:support
-service:service
-operator:operator
-default:default
-
-# === More Common Passwords ===
-admin:passw0rd
-admin:trustno1
-admin:shadow
-admin:master
-admin:access
-admin:login
-admin:default
-admin:iloveyou
-admin:monkey
-admin:dragon
-root:pass
-root:system
-root:54321
-root:dreambox
-root:default
-root:ikwd
-root:Zte521
-
-# === Database ===
-sa:
-sa:sa
-sa:password
-postgres:postgres
-mysql:mysql
+# Lines starting with # are comments.
+#
+# Example: if you know a target uses "operator:changeme"
+# operator:changeme

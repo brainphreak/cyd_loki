@@ -186,12 +186,13 @@ SD card root/
 ```
 
 **Custom wordlist** (`creds.txt`):
+
+The firmware has 242 credential combinations built-in (11 usernames × 20 passwords + blank/same-as-user). The `creds.txt` file on the SD card adds **additional** credentials on top of these — you don't need to repeat the built-in ones. Only add target-specific or unusual credentials:
 ```
-# username:password format
-admin:secret
-root:toor
-# just password (assumes admin)
-changeme
+# These are IN ADDITION to the 242 built-in combos
+# Only add extras specific to your targets
+operator:changeme
+cisco:cisco
 ```
 
 ## Feature Comparison
