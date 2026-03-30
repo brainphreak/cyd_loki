@@ -206,13 +206,76 @@ static void parseThemeConfig(const char* path) {
         String key = line.substring(0, eq); key.trim();
         String val = line.substring(eq + 1); val.trim();
 
+        // Helper: parse hex color (e.g. "3DE9" → 0x3DE9)
+        #define PARSE_COLOR(k, field) if (key == k) { themeConfig.field = (uint16_t)strtol(val.c_str(), NULL, 16); }
+        #define PARSE_INT(k, field) if (key == k) { themeConfig.field = val.toInt(); }
+
         if (key == "name") strncpy(themeConfig.name, val.c_str(), sizeof(themeConfig.name) - 1);
-        else if (key == "anim_interval_min") themeConfig.animIntervalMin = val.toInt();
-        else if (key == "anim_interval_max") themeConfig.animIntervalMax = val.toInt();
-        else if (key == "comment_interval_min") themeConfig.commentIntervalMin = val.toInt();
-        else if (key == "comment_interval_max") themeConfig.commentIntervalMax = val.toInt();
-        else if (key == "sprite_size") themeConfig.spriteSize = val.toInt();
+
+        // Animation
+        else PARSE_INT("sprite_size", spriteSize)
         else if (key == "animation_mode") themeConfig.animSequential = (val == "sequential");
+        else PARSE_INT("anim_interval_min", animIntervalMin)
+        else PARSE_INT("anim_interval_max", animIntervalMax)
+        else PARSE_INT("comment_interval_min", commentIntervalMin)
+        else PARSE_INT("comment_interval_max", commentIntervalMax)
+
+        // Colors
+        else PARSE_COLOR("color_bg", colorBg)
+        else PARSE_COLOR("color_surface", colorSurface)
+        else PARSE_COLOR("color_elevated", colorElevated)
+        else PARSE_COLOR("color_text", colorText)
+        else PARSE_COLOR("color_text_dim", colorTextDim)
+        else PARSE_COLOR("color_accent", colorAccent)
+        else PARSE_COLOR("color_accent_bright", colorAccentBright)
+        else PARSE_COLOR("color_accent_dim", colorAccentDim)
+        else PARSE_COLOR("color_highlight", colorHighlight)
+        else PARSE_COLOR("color_alert", colorAlert)
+        else PARSE_COLOR("color_error", colorError)
+        else PARSE_COLOR("color_success", colorSuccess)
+        else PARSE_COLOR("color_cracked", colorCracked)
+
+        // Layout: Header
+        else PARSE_INT("header_y", headerY)
+        else PARSE_INT("header_h", headerH)
+        else PARSE_INT("xp_x", xpX)
+        else PARSE_INT("xp_y", xpY)
+        else PARSE_INT("wifi_x", wifiX)
+        else PARSE_INT("wifi_y", wifiY)
+
+        // Layout: Stats
+        else PARSE_INT("stats_y", statsY)
+        else PARSE_INT("stats_rows", statsRows)
+        else PARSE_INT("stats_cols", statsCols)
+        else PARSE_INT("stats_row_h", statsRowH)
+        else PARSE_INT("stats_icon_size", statsIconSize)
+
+        // Layout: Status
+        else PARSE_INT("status_y", statusY)
+        else PARSE_INT("status_h", statusH)
+        else PARSE_INT("status_icon_x", statusIconX)
+        else PARSE_INT("status_text_x", statusTextX)
+
+        // Layout: Dialogue
+        else PARSE_INT("dialogue_x", dlgX)
+        else PARSE_INT("dialogue_y", dlgY)
+        else PARSE_INT("dialogue_w", dlgW)
+        else PARSE_INT("dialogue_h", dlgH)
+
+        // Layout: Character
+        else PARSE_INT("char_x", charX)
+        else PARSE_INT("char_y", charY)
+        else PARSE_INT("char_w", charW)
+        else PARSE_INT("char_h", charH)
+
+        // Layout: Kill Feed
+        else PARSE_INT("killfeed_y", kfY)
+        else PARSE_INT("killfeed_lines", kfLines)
+        else PARSE_INT("killfeed_line_h", kfLineH)
+        ;
+
+        #undef PARSE_COLOR
+        #undef PARSE_INT
     }
     f.close();
 }
@@ -222,14 +285,65 @@ static void parseThemeConfig(const char* path) {
 // =============================================================================
 
 void setup() {
-    // Default config (matches built-in theme)
+    // Default config (matches built-in Loki theme)
     strncpy(themeConfig.name, "LOKI", sizeof(themeConfig.name));
+
+    // Animation defaults
+    themeConfig.spriteSize = 175;
+    themeConfig.animSequential = true;
     themeConfig.animIntervalMin = PET_ANIM_INTERVAL_MIN;
     themeConfig.animIntervalMax = PET_ANIM_INTERVAL_MAX;
     themeConfig.commentIntervalMin = PET_COMMENT_MIN_MS;
     themeConfig.commentIntervalMax = PET_COMMENT_MAX_MS;
-    themeConfig.spriteSize = 175;
-    themeConfig.animSequential = true;
+
+    // Color defaults (Loki green theme)
+    themeConfig.colorBg          = 0x0861;  // Dark green-black
+    themeConfig.colorSurface     = 0x0A43;
+    themeConfig.colorElevated    = 0x1264;
+    themeConfig.colorText        = 0xD6B4;  // Light green-white
+    themeConfig.colorTextDim     = 0x4CC9;
+    themeConfig.colorAccent      = 0x3DE9;  // Green
+    themeConfig.colorAccentBright= 0x7EF6;
+    themeConfig.colorAccentDim   = 0x3464;
+    themeConfig.colorHighlight   = 0xFE60;  // Gold
+    themeConfig.colorAlert       = 0xF81F;  // Magenta
+    themeConfig.colorError       = 0xF800;  // Red
+    themeConfig.colorSuccess     = 0x07E0;  // Green
+    themeConfig.colorCracked     = 0xFB56;  // Hot pink
+
+    // Layout defaults (320x480)
+    themeConfig.headerY = 0;
+    themeConfig.headerH = 32;
+    themeConfig.xpX = SCREEN_WIDTH / 2 + 8;
+    themeConfig.xpY = 8;
+    themeConfig.wifiX = SCREEN_WIDTH - 75;
+    themeConfig.wifiY = 8;
+
+    themeConfig.statsY = 34;
+    themeConfig.statsRows = 3;
+    themeConfig.statsCols = 3;
+    themeConfig.statsIconSize = min((int)(18 * SCREEN_WIDTH / 222.0f), 22);
+    themeConfig.statsRowH = themeConfig.statsIconSize + 8;
+
+    int statsBottom = themeConfig.statsY + themeConfig.statsRowH * themeConfig.statsRows;
+    themeConfig.statusY = statsBottom + 14;  // After frise
+    themeConfig.statusH = 34;
+    themeConfig.statusIconX = 4;
+    themeConfig.statusTextX = 36;
+
+    themeConfig.dlgX = 6;
+    themeConfig.dlgY = themeConfig.statusY + themeConfig.statusH + 4;
+    themeConfig.dlgW = SCREEN_WIDTH - 12;
+    themeConfig.dlgH = 54;
+
+    themeConfig.charX = (SCREEN_WIDTH - 175) / 2;
+    themeConfig.charY = themeConfig.dlgY + themeConfig.dlgH + 12;
+    themeConfig.charW = 175;
+    themeConfig.charH = 175;
+
+    themeConfig.kfY = themeConfig.charY + themeConfig.charH + 8;
+    themeConfig.kfLines = 4;
+    themeConfig.kfLineH = max(10, (SCREEN_HEIGHT - themeConfig.kfY) / 4);
 
     Serial.printf("[THEME] Built-in fallback: bg + %d states\n", SPRITE_STATE_COUNT);
 

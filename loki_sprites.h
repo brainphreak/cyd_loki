@@ -13,12 +13,54 @@
 // Theme config loaded from theme.cfg
 struct LokiThemeConfig {
     char name[32];           // Display name
-    int animIntervalMin;     // Min ms between animation frames
-    int animIntervalMax;     // Max ms between animation frames
-    int commentIntervalMin;  // Min ms between comments
-    int commentIntervalMax;  // Max ms between comments
-    int spriteSize;          // Character sprite dimension (e.g. 175)
-    bool animSequential;     // true = play in order, false = random frame
+
+    // Animation
+    int spriteSize;
+    bool animSequential;
+    int animIntervalMin;
+    int animIntervalMax;
+    int commentIntervalMin;
+    int commentIntervalMax;
+
+    // Colors (RGB565)
+    uint16_t colorBg;
+    uint16_t colorSurface;
+    uint16_t colorElevated;
+    uint16_t colorText;
+    uint16_t colorTextDim;
+    uint16_t colorAccent;       // Primary accent (green in loki)
+    uint16_t colorAccentBright;
+    uint16_t colorAccentDim;
+    uint16_t colorHighlight;    // XP/gold
+    uint16_t colorAlert;        // Magenta
+    uint16_t colorError;        // Red
+    uint16_t colorSuccess;      // Green
+    uint16_t colorCracked;      // Hot pink
+
+    // Layout: Header
+    int headerY;
+    int headerH;
+    int xpX, xpY;
+    int wifiX, wifiY;
+
+    // Layout: Stats Grid
+    int statsY;
+    int statsRows, statsCols;
+    int statsRowH;
+    int statsIconSize;
+
+    // Layout: Status Bar
+    int statusY, statusH;
+    int statusIconX, statusTextX;
+
+    // Layout: Dialogue
+    int dlgX, dlgY, dlgW, dlgH;
+
+    // Layout: Character
+    int charX, charY, charW, charH;
+
+    // Layout: Kill Feed
+    int kfY, kfLines, kfLineH;
 };
 
 namespace LokiSprites {

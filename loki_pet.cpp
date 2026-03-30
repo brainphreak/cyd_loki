@@ -16,6 +16,9 @@
 
 extern TFT_eSPI tft;
 
+// Shorthand for theme colors — avoids long chains in draw code
+#define TC (LokiSprites::getThemeConfig())
+
 namespace LokiPet {
 
 // --- Settings ---
@@ -111,59 +114,48 @@ struct Layout {
 static Layout ly;
 
 static void computeLayout() {
-    float sx = SCREEN_WIDTH / 222.0f;
-    float sy = SCREEN_HEIGHT / 480.0f;
+    // Read all positions from theme config — theme creators control everything
+    LokiThemeConfig& tc = LokiSprites::getThemeConfig();
 
-    ly.headerH = (int)(32 * sy);
+    ly.headerH = tc.headerH;
 
-    ly.statsY = (int)(34 * sy);
-    ly.statColW = SCREEN_WIDTH / 3;
-    ly.statIconSize = min((int)(18 * sx), 22);
-    ly.statRowH = ly.statIconSize + 8;
-    ly.statsH = ly.statRowH * 3;  // 3 rows!
+    ly.statsY = tc.statsY;
+    ly.statColW = SCREEN_WIDTH / tc.statsCols;
+    ly.statIconSize = tc.statsIconSize;
+    ly.statRowH = tc.statsRowH;
+    ly.statsH = ly.statRowH * tc.statsRows;
 
-    for (int i = 0; i < 9; i++) {
-        int col = i % 3, row = i / 3;
+    int maxStats = tc.statsRows * tc.statsCols;
+    for (int i = 0; i < maxStats && i < 9; i++) {
+        int col = i % tc.statsCols, row = i / tc.statsCols;
         ly.statX[i] = col * ly.statColW + ly.statIconSize + 6;
         ly.statY[i] = ly.statsY + row * ly.statRowH + ly.statRowH / 2;
     }
 
-    // Everything below stats is positioned relative to stats bottom
-    int statsBottom = ly.statsY + ly.statsH;
-
-    ly.friseY = statsBottom + 2;
-    ly.friseH = (int)(10 * sy);
-
-    ly.statusY = ly.friseY + ly.friseH + 2;
-    ly.statusH = (int)(34 * sy);
-    ly.statusIconSize = (int)(30 * sx);
-    ly.statusIconX = (int)(4 * sx);
+    ly.statusY = tc.statusY;
+    ly.statusH = tc.statusH;
+    ly.statusIconSize = 28;  // PROGMEM status icon size
+    ly.statusIconX = tc.statusIconX;
     ly.statusIconY = ly.statusY + (ly.statusH - ly.statusIconSize) / 2;
     ly.statusTextY = ly.statusY + ly.statusH / 2;
 
-    // Dialogue — below status
-    int statusBottom = ly.statusY + ly.statusH;
-    ly.dlgX = (int)(4 * sx);
-    ly.dlgY = statusBottom + (int)(4 * sy);
-    ly.dlgW = SCREEN_WIDTH - (int)(8 * sx);
-    ly.dlgH = (int)(54 * sy);
+    ly.dlgX = tc.dlgX;
+    ly.dlgY = tc.dlgY;
+    ly.dlgW = tc.dlgW;
+    ly.dlgH = tc.dlgH;
     ly.dlgTextX = ly.dlgX + 8;
     ly.dlgTextY = ly.dlgY + 8;
     ly.dlgTextW = ly.dlgW - 16;
     ly.dlgTextH = ly.dlgH - 16;
 
-    // Character — below dialogue + tail
-    int spriteSize = (int)(120 * sx);
-    ly.charX = (SCREEN_WIDTH - spriteSize) / 2;
-    ly.charY = ly.dlgY + ly.dlgH + (int)(12 * sy);
-    ly.charW = spriteSize;
-    ly.charH = spriteSize;
+    ly.charX = tc.charX;
+    ly.charY = tc.charY;
+    ly.charW = tc.charW;
+    ly.charH = tc.charH;
 
-    // Kill feed — below character
-    int kfTop = ly.charY + ly.charH + (int)(8 * sy);
-    ly.kfY = kfTop;
-    ly.kfLineH = max(10, (SCREEN_HEIGHT - kfTop) / 4);
-    ly.kfLines = min(4, (SCREEN_HEIGHT - ly.kfY) / ly.kfLineH);
+    ly.kfY = tc.kfY;
+    ly.kfLineH = tc.kfLineH;
+    ly.kfLines = tc.kfLines;
 }
 
 // =============================================================================
@@ -221,10 +213,10 @@ static void redrawBackground() {
     if (hasBG) {
         LokiSprites::drawBackground();
     } else {
-        tft.fillScreen(LOKI_BG_DARK);
-        tft.fillRect(0, 0, SCREEN_WIDTH, ly.headerH, LOKI_BG_SURFACE);
-        tft.fillRect(0, ly.statusY, SCREEN_WIDTH, ly.statusH, LOKI_BG_SURFACE);
-        tft.drawLine(0, ly.kfY - 4, SCREEN_WIDTH, ly.kfY - 4, LOKI_DIM);
+        tft.fillScreen(TC.colorBg);
+        tft.fillRect(0, 0, SCREEN_WIDTH, ly.headerH, TC.colorSurface);
+        tft.fillRect(0, ly.statusY, SCREEN_WIDTH, ly.statusH, TC.colorSurface);
+        tft.drawLine(0, ly.kfY - 4, SCREEN_WIDTH, ly.kfY - 4, TC.colorAccentDim);
     }
 }
 
@@ -248,7 +240,7 @@ static void restoreBackgroundStrip(int x, int y, int w, int h) {
         }
         tft.endWrite();
     } else {
-        tft.fillRect(x, y, w, h, LOKI_BG_DARK);
+        tft.fillRect(x, y, w, h, TC.colorBg);
     }
 }
 
@@ -256,27 +248,22 @@ static void drawHeader() {
     // Title "LOKI" and XP icon are baked into the background
     // Restore the areas where dynamic text goes, then draw new text
 
-    // XP value area — restore background then draw value
-    int xpValX = SCREEN_WIDTH / 2 + 8;
-    int textH = 10;  // TFT_eSPI default font height at size 1
-    int textY = ly.headerH / 2 - textH / 2;
-    restoreBackgroundStrip(xpValX, textY, 55, textH + 2);
-
+    // XP value
+    int textH = 10;
+    restoreBackgroundStrip(TC.xpX, TC.xpY, 55, textH + 2);
     char xpBuf[12];
     snprintf(xpBuf, sizeof(xpBuf), "%lu", (unsigned long)displayScore.xp);
     tft.setTextDatum(ML_DATUM);
     tft.setTextSize(1);
-    tft.setTextColor(LOKI_GOLD);
-    tft.drawString(xpBuf, xpValX, ly.headerH / 2);
+    tft.setTextColor(TC.colorHighlight);
+    tft.drawString(xpBuf, TC.xpX, TC.xpY + textH / 2);
 
-    // WiFi status (right side of header)
-    int moodW = 85;
-    restoreBackgroundStrip(SCREEN_WIDTH - moodW, textY, moodW, textH + 2);
-
+    // WiFi status
+    restoreBackgroundStrip(TC.wifiX, TC.wifiY, SCREEN_WIDTH - TC.wifiX, textH + 2);
     tft.setTextDatum(MR_DATUM);
     bool wifiUp = (WiFi.status() == WL_CONNECTED);
-    tft.setTextColor(wifiUp ? LOKI_GREEN : LOKI_TEXT_DIM);
-    tft.drawString(wifiUp ? "Connected" : "Offline", SCREEN_WIDTH - 5, ly.headerH / 2);
+    tft.setTextColor(wifiUp ? TC.colorSuccess : TC.colorTextDim);
+    tft.drawString(wifiUp ? "Connected" : "Offline", SCREEN_WIDTH - 5, TC.wifiY + textH / 2);
 
     tft.setTextDatum(TL_DATUM);
 }
@@ -302,9 +289,9 @@ static void drawStatValues() {
         networkkb, level, displayScore.totalScans,
     };
     uint16_t colors[9] = {
-        LOKI_CYAN, LOKI_BRIGHT, LOKI_RED,
-        LOKI_HOTPINK, LOKI_MAGENTA, LOKI_TEXT,
-        LOKI_TEXT, LOKI_TEXT, LOKI_BRIGHT,
+        TC.colorAccent, TC.colorAccentBright, TC.colorError,
+        TC.colorCracked, TC.colorAlert, TC.colorText,
+        TC.colorText, TC.colorText, TC.colorAccentBright,
     };
 
     tft.setTextSize(1);
@@ -319,7 +306,7 @@ static void drawStatValues() {
 
         char buf[10];
         snprintf(buf, sizeof(buf), "%lu", (unsigned long)values[i]);
-        tft.setTextColor(colors[i], LOKI_BG_DARK);
+        tft.setTextColor(colors[i], TC.colorBg);
         tft.drawString(buf, ly.statX[i], ly.statY[i]);
     }
 
@@ -368,14 +355,14 @@ static void drawStatus() {
 
     tft.setTextSize(1);
 
-    // Line 1: Action name (top of status bar)
+    // Line 1: Action name
     tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(LOKI_GREEN);
+    tft.setTextColor(TC.colorAccent);
     tft.drawString(statusMain, textX, ly.statusY + 4);
 
-    // Line 2: Detail text (bottom of status bar, smaller/dimmer)
+    // Line 2: Detail text
     if (statusSub[0]) {
-        tft.setTextColor(LOKI_TEXT_DIM);
+        tft.setTextColor(TC.colorTextDim);
         tft.drawString(statusSub, textX, ly.statusY + 4 + 14);
     }
 
@@ -421,16 +408,16 @@ static void drawCharacter() {
 
 static void drawCharacterFallback() {
     // Clear character area
-    tft.fillRect(ly.charX, ly.charY, ly.charW, ly.charH, LOKI_BG_DARK);
+    tft.fillRect(ly.charX, ly.charY, ly.charW, ly.charH, TC.colorBg);
 
     int centerX = ly.charX + ly.charW / 2;
     int centerY = ly.charY + ly.charH / 2;
     int radius = ly.charW / 4;
 
-    uint16_t fc = LOKI_GREEN;
-    if (currentMood == MOOD_ATTACKING) fc = LOKI_HOTPINK;
-    if (currentMood == MOOD_SLEEPING) fc = LOKI_DIM;
-    if (currentMood == MOOD_CRACKED) fc = LOKI_GOLD;
+    uint16_t fc = TC.colorAccent;
+    if (currentMood == MOOD_ATTACKING) fc = TC.colorCracked;
+    if (currentMood == MOOD_SLEEPING) fc = TC.colorAccentDim;
+    if (currentMood == MOOD_CRACKED) fc = TC.colorHighlight;
 
     tft.drawCircle(centerX, centerY, radius, fc);
     // Horns
@@ -465,7 +452,7 @@ static void drawDialogue() {
 
     if (!comment[0]) return;
 
-    tft.setTextColor(LOKI_TEXT);
+    tft.setTextColor(TC.colorText);
     tft.setTextSize(1);
 
     int curX = ly.dlgTextX;
@@ -501,7 +488,7 @@ static void drawDialogue() {
 static void drawKillFeed() {
     // Clear kill feed area
     int kfH = ly.kfLineH * ly.kfLines;
-    tft.fillRect(0, ly.kfY, SCREEN_WIDTH, kfH, LOKI_BG_DARK);
+    tft.fillRect(0, ly.kfY, SCREEN_WIDTH, kfH, TC.colorBg);
 
     tft.setTextSize(1);
     int startIdx = killFeedCount - ly.kfLines;
