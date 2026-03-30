@@ -237,7 +237,7 @@ changeme
 | Attack Log Persistence | ✅ | ✅ (SPIFFS) | ✅ Complete |
 | Credential Persistence | ✅ | ✅ (SPIFFS + NVS) | ✅ Complete |
 | WiFi Auto-Reconnect | ✅ | ✅ | ✅ Complete |
-| Brightness Control | N/A | ✅ | ✅ Complete |
+| Brightness Control | ✅ | ✅ | ✅ Complete |
 | Touch Calibration | N/A | ✅ | ✅ Complete |
 | Screenshot Capture | ✅ | ✅ (via web) | ✅ Complete |
 
