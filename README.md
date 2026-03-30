@@ -236,7 +236,7 @@ changeme
 | Manual Target Entry | ✅ | 🔄 | 🚧 In Progress |
 | Attack Log Persistence | ✅ | ✅ (SPIFFS) | ✅ Complete |
 | Credential Persistence | ✅ | ✅ (SPIFFS + NVS) | ✅ Complete |
-| WiFi Auto-Reconnect | ✅ | ✅ | ✅ Complete |
+| WiFi Auto-Reconnect | N/A | ✅ | ✅ Complete |
 | Brightness Control | ✅ | ✅ | ✅ Complete |
 | Touch Calibration | N/A | ✅ | ✅ Complete |
 | Screenshot Capture | ✅ | ✅ (via web) | ✅ Complete |
