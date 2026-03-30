@@ -112,11 +112,13 @@ Special thanks to [HaleHound-CYD](https://github.com/JesseCHale/HaleHound-CYD) b
 
 ## Supported Hardware
 
-| Board | Display | Status |
-|-------|---------|--------|
-| QDtech E32R35T | 3.5" ST7796 320x480 | Primary target, fully tested |
-| ESP32-2432S028 | 2.8" ILI9341 240x320 | Builds, needs testing |
-| QDtech E32R28T | 2.8" ILI9341 (Type-C) | Builds, needs testing |
+| Board | Display | Touch | Status |
+|-------|---------|-------|--------|
+| QDtech E32R35T | 3.5" ST7796 320x480 | Resistive | Primary target, fully tested |
+| ESP32-2432S028 | 2.8" ILI9341 240x320 | Resistive | 📋 Planned |
+| QDtech E32R28T | 2.8" ILI9341 (Type-C) | Resistive | 📋 Planned |
+| ESP32-3248S035C | 3.5" ILI9488 480x320 | Capacitive | 📋 Planned |
+| ESP32-8048S043 | 4.0" ST7262 800x480 | Capacitive | 📋 Planned |
 
 ## Installation
 
