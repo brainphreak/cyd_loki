@@ -12,6 +12,7 @@
 #include "loki_sprites.h"
 #include "loki_config.h"
 #include "loki_assets.h"  // PROGMEM fallback assets
+#include "asset_bg.h"     // Background data for composite transparency
 #include <SD.h>
 #include <SPI.h>
 
@@ -154,14 +155,35 @@ static bool drawSDBmpTransparent(const char* path, int x, int y) {
     file.seek(dataOffset);
     int rowSize = ((width * 2 + 3) / 4) * 4;
     uint8_t rowBuf[rowSize];
+
+    // Fast composite: replace transparent pixels with PROGMEM background,
+    // then push entire row at once. No flash, no pixel-by-pixel drawing.
+    // bg_data from asset_bg.h (PROGMEM background for composite)
+
+    tft.startWrite();
     for (int row = 0; row < height; row++) {
         file.read(rowBuf, rowSize);
         uint16_t* pixels = (uint16_t*)rowBuf;
+
+        // Replace magenta pixels with background
+        int bgY = y + row;
         for (int col = 0; col < width; col++) {
-            if (pixels[col] != TRANSPARENT_COLOR)
-                tft.drawPixel(x + col, y + row, pixels[col]);
+            if (pixels[col] == TRANSPARENT_COLOR) {
+                int bgX = x + col;
+                if (bgX < BG_W && bgY < BG_H) {
+                    pixels[col] = pgm_read_word(&bg_data[bgY * BG_W + bgX]);
+                } else {
+                    pixels[col] = 0x0861;  // LOKI_BG_DARK fallback
+                }
+            }
         }
+
+        // Push entire composited row at once (fast!)
+        tft.setAddrWindow(x, y + row, width, 1);
+        tft.pushColors(pixels, width);
     }
+    tft.endWrite();
+
     file.close(); unmountSD();
     return true;
 }
@@ -190,6 +212,7 @@ static void parseThemeConfig(const char* path) {
         else if (key == "comment_interval_min") themeConfig.commentIntervalMin = val.toInt();
         else if (key == "comment_interval_max") themeConfig.commentIntervalMax = val.toInt();
         else if (key == "sprite_size") themeConfig.spriteSize = val.toInt();
+        else if (key == "animation_mode") themeConfig.animSequential = (val == "sequential");
     }
     f.close();
 }
@@ -206,6 +229,7 @@ void setup() {
     themeConfig.commentIntervalMin = PET_COMMENT_MIN_MS;
     themeConfig.commentIntervalMax = PET_COMMENT_MAX_MS;
     themeConfig.spriteSize = 175;
+    themeConfig.animSequential = true;
 
     Serial.printf("[THEME] Built-in fallback: bg + %d states\n", SPRITE_STATE_COUNT);
 

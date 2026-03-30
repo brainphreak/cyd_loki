@@ -11,16 +11,19 @@
 // --- Device types found on the network ---
 enum LokiDeviceType : uint8_t {
     DEV_UNKNOWN = 0,
-    DEV_CAMERA,
-    DEV_MQTT_BROKER,
-    DEV_TELNET,
-    DEV_MODBUS_PLC,
-    DEV_HTTP,
-    DEV_FTP,
-    DEV_SSH,
-    DEV_SMB,
-    DEV_MYSQL,
-    DEV_RDP
+    DEV_PHONE,          // Apple, Samsung, etc.
+    DEV_LAPTOP,         // Intel, Dell, Lenovo, etc.
+    DEV_ROUTER,         // Cisco, Netgear, TP-Link, etc.
+    DEV_CAMERA,         // Hikvision, Dahua, etc.
+    DEV_NAS,            // Synology, QNAP, etc.
+    DEV_PRINTER,        // Brother, Canon, etc.
+    DEV_TV_MEDIA,       // Roku, LG, etc.
+    DEV_IOT,            // Espressif, Shelly, Tuya, etc.
+    DEV_SPEAKER,        // Sonos, Amazon Echo, etc.
+    DEV_GAMING,         // Nintendo, PlayStation, etc.
+    DEV_SERVER,         // Linux/Windows server
+    DEV_VM,             // VMware, etc.
+    DEV_OTHER           // Identified vendor but unknown category
 };
 
 // --- Device attack status ---
@@ -58,10 +61,12 @@ enum LokiMood : uint8_t {
 // --- Discovered device record ---
 struct LokiDevice {
     uint8_t  ip[4];
+    uint8_t  mac[6];                             // MAC address from ARP
     uint16_t openPorts;                          // Bitmask (9 ports)
     LokiDeviceType  type;
     LokiDeviceStatus status;
     char     banner[LOKI_MAX_BANNER_LEN];
+    char     vendor[16];                         // Vendor name from OUI lookup
     char     credUser[LOKI_MAX_CRED_USER];       // Last cracked cred (for display)
     char     credPass[LOKI_MAX_CRED_PASS];
     uint8_t  crackedPorts;                       // Bitmask of which ports were cracked

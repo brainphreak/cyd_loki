@@ -76,7 +76,9 @@ def main():
         f.write(f"anim_interval_max = {anim_max}\n")
         f.write(f"comment_interval_min = {comment_min}\n")
         f.write(f"comment_interval_max = {comment_max}\n")
-    print(f"  theme.cfg (anim: {anim_min}-{anim_max}ms, comment: {comment_min}-{comment_max}ms)")
+        anim_mode = theme_json.get('animation_mode', 'sequential')
+        f.write(f"animation_mode = {anim_mode}\n")
+    print(f"  theme.cfg (anim: {anim_min}-{anim_max}ms, mode: {anim_mode})")
 
     # --- 2. Generate background ---
     print(f"\n  Background ({screen_w}x{screen_h}):")
@@ -98,13 +100,13 @@ def main():
     bg_color = (255, 0, 255)  # Magenta transparency key
 
     states = {
-        'idle':   ('IDLE', 'IDLE', 6),
-        'scan':   ('NetworkScanner', 'NetworkScanner', 4),
-        'attack': ('SSHBruteforce', 'SSHBruteforce', 4),
-        'ftp':    ('FTPBruteforce', 'FTPBruteforce', 4),
-        'telnet': ('TelnetBruteforce', 'TelnetBruteforce', 4),
-        'steal':  ('StealFilesSSH', 'StealFilesSSH', 4),
-        'vuln':   ('NmapVulnScanner', 'NmapVulnScanner', 4),
+        'idle':   ('IDLE', 'IDLE', 0),               # 0 = ALL frames
+        'scan':   ('NetworkScanner', 'NetworkScanner', 0),
+        'attack': ('SSHBruteforce', 'SSHBruteforce', 0),
+        'ftp':    ('FTPBruteforce', 'FTPBruteforce', 0),
+        'telnet': ('TelnetBruteforce', 'TelnetBruteforce', 0),
+        'steal':  ('StealFilesSSH', 'StealFilesSSH', 0),
+        'vuln':   ('NmapVulnScanner', 'NmapVulnScanner', 0),
     }
 
     print(f"\n  Sprites ({sprite_size}x{sprite_size}):")

@@ -18,6 +18,7 @@ struct LokiThemeConfig {
     int commentIntervalMin;  // Min ms between comments
     int commentIntervalMax;  // Max ms between comments
     int spriteSize;          // Character sprite dimension (e.g. 175)
+    bool animSequential;     // true = play in order, false = random frame
 };
 
 namespace LokiSprites {

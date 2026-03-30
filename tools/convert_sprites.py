@@ -111,13 +111,21 @@ def png_to_rgb565_bmp(input_path, output_path, size, bg_color=(255, 0, 255)):
 
 def select_frames(frame_dir, prefix, count=4):
     """Select evenly-spaced frames from an animation directory."""
+    # Only include numbered frames (e.g. IDLE1.png, not IDLE.png which is the status icon)
     files = sorted([
         f for f in os.listdir(frame_dir)
-        if f.endswith('.png') and f.startswith(prefix)
-    ], key=lambda f: int(''.join(filter(str.isdigit, f)) or '0'))
+        if (f.endswith('.png') or f.endswith('.bmp'))
+        and f.startswith(prefix)
+        and any(c.isdigit() for c in os.path.splitext(f)[0])
+        and os.path.splitext(f)[0] != prefix  # Exclude exact match (no number)
+    ], key=lambda f: int(''.join(filter(str.isdigit, os.path.splitext(f)[0])) or '0'))
 
     if not files:
         return []
+
+    if count == 0:
+        # count=0 means ALL frames
+        return [os.path.join(frame_dir, f) for f in files]
 
     if len(files) <= count:
         return [os.path.join(frame_dir, f) for f in files]

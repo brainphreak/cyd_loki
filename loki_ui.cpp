@@ -424,6 +424,21 @@ void drawDeviceList() {
         int lineH = SCALE_H(20);
         int maxVisible = (SCREEN_HEIGHT - 70 - listY) / lineH;
 
+        // Clamp scroll
+        int maxScroll = max(0, devCount - maxVisible);
+        devScroll = min(devScroll, maxScroll);
+
+        // Scroll indicator
+        if (devCount > maxVisible) {
+            tft.setTextColor(LOKI_TEXT_DIM);
+            tft.setTextDatum(MR_DATUM);
+            char scrollInfo[16];
+            snprintf(scrollInfo, sizeof(scrollInfo), "%d-%d/%d",
+                     devScroll + 1, min(devScroll + maxVisible, devCount), devCount);
+            tft.drawString(scrollInfo, SCREEN_WIDTH - 5, 25);
+            tft.setTextDatum(TL_DATUM);
+        }
+
         for (int i = devScroll; i < devCount && (i - devScroll) < maxVisible; i++) {
             int y = listY + (i - devScroll) * lineH;
             LokiDevice& dev = devs[i];
@@ -450,46 +465,70 @@ void drawDeviceList() {
             tft.setCursor(6, y + lineH / 2 - 4);
             tft.print(statusStr);
 
-            // IP only — tap for details
+            // IP + vendor
             tft.setTextColor(LOKI_TEXT);
             tft.setCursor(18, y + lineH / 2 - 4);
-            tft.print(ipStr);
+            if (dev.vendor[0]) {
+                tft.printf("%s (%s)", ipStr, dev.vendor);
+            } else {
+                tft.print(ipStr);
+            }
         }
     }
 
-    // Clear + Back buttons
+    // Scroll Up / Clear / Back buttons
     int btnY = SCREEN_HEIGHT - 30;
-    int btnW = SCREEN_WIDTH / 2 - 6;
+    int btnW = SCREEN_WIDTH / 3 - 4;
 
-    tft.fillRoundRect(4, btnY, btnW, 24, 3, LOKI_BG_SURFACE);
-    tft.drawRoundRect(4, btnY, btnW, 24, 3, LOKI_MAGENTA);
+    tft.fillRoundRect(2, btnY, btnW, 24, 3, LOKI_BG_SURFACE);
+    tft.drawRoundRect(2, btnY, btnW, 24, 3, LOKI_CYAN);
     tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(LOKI_MAGENTA);
-    tft.drawString("Clear Hosts", 4 + btnW / 2, btnY + 12);
+    tft.setTextColor(LOKI_CYAN);
+    tft.drawString("Up", 2 + btnW / 2, btnY + 12);
 
-    tft.fillRoundRect(SCREEN_WIDTH / 2 + 2, btnY, btnW, 24, 3, LOKI_BG_SURFACE);
-    tft.drawRoundRect(SCREEN_WIDTH / 2 + 2, btnY, btnW, 24, 3, LOKI_RED);
+    int midX = SCREEN_WIDTH / 3 + 1;
+    tft.fillRoundRect(midX, btnY, btnW, 24, 3, LOKI_BG_SURFACE);
+    tft.drawRoundRect(midX, btnY, btnW, 24, 3, LOKI_MAGENTA);
+    tft.setTextColor(LOKI_MAGENTA);
+    tft.drawString("Clear", midX + btnW / 2, btnY + 12);
+
+    int rightX = SCREEN_WIDTH * 2 / 3 + 1;
+    tft.fillRoundRect(rightX, btnY, btnW, 24, 3, LOKI_BG_SURFACE);
+    tft.drawRoundRect(rightX, btnY, btnW, 24, 3, LOKI_RED);
     tft.setTextColor(LOKI_RED);
-    tft.drawString("Back", SCREEN_WIDTH / 2 + 2 + btnW / 2, btnY + 12);
+    tft.drawString("Back", rightX + btnW / 2, btnY + 12);
     tft.setTextDatum(TL_DATUM);
 }
 
 void handleDeviceListTouch(int x, int y) {
     if (y >= SCREEN_HEIGHT - 30) {
-        if (x < SCREEN_WIDTH / 2) {
+        if (x < SCREEN_WIDTH / 3) {
+            // Scroll up
+            devScroll = max(0, devScroll - 5);
+            drawDeviceList();
+        } else if (x < SCREEN_WIDTH * 2 / 3) {
             // Clear hosts
             LokiRecon::clearDevices();
+            devScroll = 0;
             drawDeviceList();
         }
-        return; // Back handled by caller
+        // Right third = Back (handled by caller)
+        return;
     }
 
-    // Device selection — lineH must match drawDeviceList()
+    // Device selection
     int listY = 40;
     int lineH = SCALE_H(20);
     int idx = (y - listY) / lineH + devScroll;
     if (idx >= 0 && idx < LokiRecon::getDeviceCount()) {
         detailDevIdx = idx;
+    } else {
+        // Tapped empty area below list — scroll down
+        int devCount = LokiRecon::getDeviceCount();
+        int maxVisible = (SCREEN_HEIGHT - 70 - listY) / lineH;
+        int maxScroll = max(0, devCount - maxVisible);
+        devScroll = min(devScroll + 5, maxScroll);
+        drawDeviceList();
     }
 }
 
@@ -516,20 +555,39 @@ void drawDeviceDetail(int deviceIdx) {
     tft.setTextSize(1);
     int y = 35;
 
-    // Type
+    // Type (from vendor + port classification)
     const char* typeStr = "Unknown";
     switch (dev.type) {
-        case DEV_CAMERA:      typeStr = "IP Camera"; break;
-        case DEV_MQTT_BROKER: typeStr = "MQTT Broker"; break;
-        case DEV_TELNET:      typeStr = "Telnet Device"; break;
-        case DEV_MODBUS_PLC:  typeStr = "Modbus PLC"; break;
-        case DEV_HTTP:        typeStr = "HTTP Device"; break;
-        case DEV_FTP:         typeStr = "FTP Server"; break;
-        case DEV_SSH:         typeStr = "SSH Server"; break;
+        case DEV_PHONE:    typeStr = "Phone/Mobile"; break;
+        case DEV_LAPTOP:   typeStr = "Laptop/PC"; break;
+        case DEV_ROUTER:   typeStr = "Router"; break;
+        case DEV_CAMERA:   typeStr = "Camera"; break;
+        case DEV_NAS:      typeStr = "NAS"; break;
+        case DEV_PRINTER:  typeStr = "Printer"; break;
+        case DEV_TV_MEDIA: typeStr = "TV/Media"; break;
+        case DEV_IOT:      typeStr = "IoT"; break;
+        case DEV_SPEAKER:  typeStr = "Smart Speaker"; break;
+        case DEV_GAMING:   typeStr = "Gaming Console"; break;
+        case DEV_SERVER:   typeStr = "Server"; break;
+        case DEV_VM:       typeStr = "VM"; break;
+        case DEV_OTHER:    typeStr = "Device"; break;
         default: break;
     }
     tft.setTextColor(LOKI_BRIGHT);
     tft.setCursor(5, y); tft.printf("Type: %s", typeStr); y += 15;
+
+    // Vendor
+    if (dev.vendor[0]) {
+        tft.setTextColor(LOKI_TEXT);
+        tft.setCursor(5, y); tft.printf("Vendor: %s", dev.vendor); y += 15;
+    }
+
+    // MAC
+    tft.setTextColor(LOKI_TEXT_DIM);
+    tft.setCursor(5, y);
+    tft.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+               dev.mac[0], dev.mac[1], dev.mac[2], dev.mac[3], dev.mac[4], dev.mac[5]);
+    y += 15;
 
     // Banner
     tft.setTextColor(LOKI_CYAN);

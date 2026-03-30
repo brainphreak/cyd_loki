@@ -401,11 +401,18 @@ static void drawCharacter() {
             int sprX = ly.charX + (ly.charW - sprSize) / 2;
             int sprY = ly.charY + (ly.charH - sprSize) / 2;
 
-            // Clear only the sprite area before drawing new frame
-            restoreBackgroundStrip(sprX, sprY, sprSize, sprSize);
-            LokiSprites::drawCharacterFrame(state, spriteFrame, sprX, sprY);
-            spriteFrame++;
-            if (spriteFrame > maxFrames) spriteFrame = 1;
+            // No separate clear needed — the composite draw replaces transparent
+            // pixels with the PROGMEM background in a single fast pass.
+
+            // Sequential or random frame selection based on theme config
+            if (LokiSprites::getThemeConfig().animSequential) {
+                LokiSprites::drawCharacterFrame(state, spriteFrame, sprX, sprY);
+                spriteFrame++;
+                if (spriteFrame > maxFrames) spriteFrame = 1;
+            } else {
+                int rndFrame = random(1, maxFrames + 1);
+                LokiSprites::drawCharacterFrame(state, rndFrame, sprX, sprY);
+            }
         }
     } else {
         drawCharacterFallback();

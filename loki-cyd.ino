@@ -408,7 +408,7 @@ void handleTouch() {
                 currentScreen = SCREEN_DEVICE_DETAIL;
                 LokiUI::drawDeviceDetail(LokiUI::getDetailDevice());
             }
-            if (ty >= SCREEN_HEIGHT - 30 && tx >= SCREEN_WIDTH / 2) {
+            if (ty >= SCREEN_HEIGHT - 30 && tx >= SCREEN_WIDTH * 2 / 3) {
                 currentScreen = SCREEN_MENU;
                 drawMenu();
             }
