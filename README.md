@@ -3,7 +3,7 @@
 **Autonomous Network Recon Virtual Pet for the Cheap Yellow Display (ESP32)**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pineapple-pager-projects/pineapple_pager_loki/main/loki.png" alt="Loki" width="200">
+  <img src="screenshots/loki-cyd.png" alt="Loki CYD" width="500">
 </p>
 
 Loki CYD is a Tamagotchi-style pentesting companion that autonomously scans networks, discovers hosts, identifies services, brute forces credentials, and displays everything through an animated virtual pet interface on the ESP32 CYD touchscreen.
