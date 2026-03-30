@@ -8,6 +8,28 @@
 
 Loki CYD is a Tamagotchi-style pentesting companion that autonomously scans networks, discovers hosts, identifies services, brute forces credentials, and displays everything through an animated virtual pet interface on the ESP32 CYD touchscreen.
 
+<p align="center">
+  <img src="screenshots/cyd-loki-screenshot1.png" width="240" alt="Scanning">
+  <img src="screenshots/cyd-loki-screenshot2.png" width="240" alt="Brute Force">
+  <img src="screenshots/cyd-loki-screenshot3.png" width="240" alt="Host Discovery">
+</p>
+
+<p align="center">
+  <img src="screenshots/cyd-loki-menu.png" width="240" alt="Menu">
+  <img src="screenshots/cyd-loki-hosts.png" width="240" alt="Hosts">
+  <img src="screenshots/cyd-loki-credentials.png" width="240" alt="Credentials">
+</p>
+
+<p align="center">
+  <img src="screenshots/cyd-loki-host-details.png" width="240" alt="Host Details">
+  <img src="screenshots/cyd-loki-attacklog.png" width="240" alt="Attack Log">
+  <img src="screenshots/cyd-loki-selecttheme.png" width="240" alt="Theme Picker">
+</p>
+
+<p align="center">
+  <img src="screenshots/cyd-loki-webui.png" width="600" alt="Web UI">
+</p>
+
 ## Inspiration & Credits
 
 This project is a port of [Loki](https://github.com/pineapple-pager-projects/pineapple_pager_loki) (originally built for the WiFi Pineapple Pager) to the ESP32 Cheap Yellow Display platform.
