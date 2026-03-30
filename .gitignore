@@ -1,7 +1,9 @@
 .pio/
 .vscode/
 *.o
+# Exclude build output bins but keep release binaries
 *.bin
+!binaries/*.bin
 *.elf
 sdcard_28/
 sdcard_builtin/
