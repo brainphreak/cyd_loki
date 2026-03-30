@@ -1,0 +1,7 @@
+# Loki CYD Custom Wordlist
+# Format: username:password (or just password, assumes admin)
+# Lines starting with # are comments
+admin:admin
+root:root
+admin:password
+admin:123456

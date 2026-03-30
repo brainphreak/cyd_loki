@@ -30,6 +30,10 @@ Loki CYD is a Tamagotchi-style pentesting companion that autonomously scans netw
   <img src="screenshots/cyd-loki-webui.png" width="600" alt="Web UI">
 </p>
 
+## Status
+
+> **Active Development** — Loki CYD is under active development. The theme system is being restructured to match the original Loki's subfolder-based format with full per-theme customization. The Web UI is about to receive a major overhaul to replicate the original Loki's multi-tab dashboard with host management, attack controls, and live monitoring. See the feature comparison matrix below for current vs planned capabilities.
+
 ## Inspiration & Credits
 
 This project is a port of [Loki](https://github.com/pineapple-pager-projects/pineapple_pager_loki) (originally built for the WiFi Pineapple Pager) to the ESP32 Cheap Yellow Display platform.
@@ -148,23 +152,44 @@ pio run -e esp32-e32r35t
 pio run -e esp32-e32r35t -t upload
 ```
 
-### SD Card Setup (Optional)
-Generate themes using the included tools:
+### SD Card Setup (Optional but Recommended)
+
+The SD card provides animated themes (6 included), loot storage, and custom wordlists. Without it, Loki CYD runs with a built-in still-image theme.
+
+**Quick setup:** Copy the `sdcard_contents/loki/` folder from this repo to the root of a FAT32-formatted MicroSD card.
+
+**Generate themes** from the original Loki project's theme assets:
 ```bash
-python3 tools/make_theme_sdcard.py <loki_theme_dir> <output_dir> --name loki --screen 320x480 --sprite 175
+# Generate a single theme
+python3 tools/make_theme_sdcard.py <original_loki_theme_dir> sdcard_output --name loki --screen 320x480 --sprite 175
+
+# Copy to SD card
+cp -R sdcard_output/loki/ /path/to/sdcard/loki/
 ```
 
-Copy the `loki/` folder to the SD card root:
+**SD card structure:**
 ```
-SD card/
+SD card root/
 └── loki/
     ├── themes/
-    │   ├── loki/
+    │   ├── loki/        ← 302 animation frames + bg + config
     │   ├── bjorn/
-    │   └── ...
-    ├── loot/
-    ├── reports/
-    └── creds.txt (optional custom wordlist)
+    │   ├── clown/
+    │   ├── knight/
+    │   ├── loki_dark/
+    │   └── pirate/
+    ├── loot/             ← Stolen files (auto-created)
+    ├── reports/          ← Scan reports (auto-created)
+    └── creds.txt         ← Custom wordlist (optional)
+```
+
+**Custom wordlist** (`creds.txt`):
+```
+# username:password format
+admin:secret
+root:toor
+# just password (assumes admin)
+changeme
 ```
 
 ## Feature Comparison
