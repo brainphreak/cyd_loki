@@ -87,7 +87,7 @@ def make_background(theme_dir, output_dir, screen_w=320, screen_h=480):
                       'cols': 3, 'rows': 3, 'icon_size': min(int(18 * sx), 22),
                       'row_h_override': min(int(18 * sx), 22) + 8},
         'frise':     {'x': 0, 'y': 0, 'w': screen_w, 'h': int(10 * sy)},  # y set after stats
-        'status':    {'x': 0, 'y': 0, 'w': screen_w, 'h': int(34 * sy),
+        'status':    {'x': 0, 'y': 0, 'w': screen_w, 'h': 45,
                       'icon_size': int(30 * sx), 'icon_x': int(4 * sx),
                       'text_x_icon': int(38 * sx), 'text_x_noicon': int(6 * sx)},
         'dialogue':  {'x': int(4 * sx), 'y': 0, 'w': screen_w - int(8 * sx), 'h': int(54 * sy)},
@@ -98,8 +98,8 @@ def make_background(theme_dir, output_dir, screen_w=320, screen_h=480):
 
     # ─── Compute dynamic y positions after stats height is known ───
     stats_bottom = layout['stats']['y'] + layout['stats'].get('row_h_override', 30) * layout['stats']['rows']
-    layout['frise']['y'] = stats_bottom + 2
-    layout['status']['y'] = layout['frise']['y'] + layout['frise']['h'] + 2
+    # No frise — status starts right after stats (1px gap for grid line)
+    layout['status']['y'] = stats_bottom + 1
     layout['dialogue']['y'] = layout['status']['y'] + layout['status']['h'] + int(4 * sy)
     layout['character']['y'] = layout['dialogue']['y'] + layout['dialogue']['h'] + int(8 * sy)
     kf_top = layout['character']['y'] + layout['character']['h'] + int(8 * sy)
@@ -171,17 +171,7 @@ def make_background(theme_dir, output_dir, screen_w=320, screen_h=480):
     # Stats bottom border
     draw.line([0, s['y'] + s['h'], screen_w, s['y'] + s['h']], fill=border_color)
 
-    # Frise (decorative divider)
-    fr = layout['frise']
-    frise_path = os.path.join(images_dir, 'frise.png')
-    if os.path.exists(frise_path):
-        frise = Image.open(frise_path).convert('RGBA')
-        frise = frise.resize((fr['w'], fr['h']), Image.LANCZOS)
-        img.paste(frise, (fr['x'], fr['y']), frise)
-    else:
-        # Fallback: draw a simple line
-        mid_y = fr['y'] + fr['h'] // 2
-        draw.line([4, mid_y, screen_w - 4, mid_y], fill=border_color, width=2)
+    # Frise removed — more space for status area
 
     # Status area background
     st = layout['status']

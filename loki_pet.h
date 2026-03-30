@@ -11,8 +11,8 @@
 
 namespace LokiPet {
 
-// Initialize the pet display
-void setup();
+// Initialize the pet display (fullInit=true on first boot, false on theme switch)
+void setup(bool fullInit = true);
 
 // Main display loop (called from Core 1)
 void loop();

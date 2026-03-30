@@ -114,63 +114,110 @@ struct Layout {
 static Layout ly;
 
 static void computeLayout() {
-    // Read all positions from theme config — theme creators control everything
     LokiThemeConfig& tc = LokiSprites::getThemeConfig();
+    float sx = SCREEN_WIDTH / 222.0f;
+    float sy = SCREEN_HEIGHT / 480.0f;
 
-    ly.headerH = tc.headerH;
+    // Compute defaults first (matches the working built-in layout)
+    ly.headerH = 32;
 
-    ly.statsY = tc.statsY;
-    ly.statColW = SCREEN_WIDTH / tc.statsCols;
-    ly.statIconSize = tc.statsIconSize;
-    ly.statRowH = tc.statsRowH;
-    ly.statsH = ly.statRowH * tc.statsRows;
+    ly.statsY = 34;
+    int iconSz = min((int)(18 * sx), 22);
+    ly.statIconSize = iconSz;
+    ly.statRowH = iconSz + 8;
+    ly.statColW = SCREEN_WIDTH / 3;
+    ly.statsH = ly.statRowH * 3;
 
-    int maxStats = tc.statsRows * tc.statsCols;
-    for (int i = 0; i < maxStats && i < 9; i++) {
-        int col = i % tc.statsCols, row = i / tc.statsCols;
-        ly.statX[i] = col * ly.statColW + ly.statIconSize + 6;
+    for (int i = 0; i < 9; i++) {
+        int col = i % 3, row = i / 3;
+        ly.statX[i] = col * ly.statColW + ly.statIconSize + 11;
         ly.statY[i] = ly.statsY + row * ly.statRowH + ly.statRowH / 2;
     }
 
-    ly.statusY = tc.statusY;
-    ly.statusH = tc.statusH;
-    ly.statusIconSize = 28;  // PROGMEM status icon size
-    ly.statusIconX = tc.statusIconX;
+    int statsBottom = ly.statsY + ly.statsH;
+    ly.statusY = statsBottom + 1;  // No frise, directly after stats
+    ly.statusH = 45;
+    ly.statusIconSize = 42;
+    ly.statusIconX = 4;
     ly.statusIconY = ly.statusY + (ly.statusH - ly.statusIconSize) / 2;
     ly.statusTextY = ly.statusY + ly.statusH / 2;
 
-    ly.dlgX = tc.dlgX;
-    ly.dlgY = tc.dlgY;
-    ly.dlgW = tc.dlgW;
-    ly.dlgH = tc.dlgH;
+    ly.dlgX = (int)(4 * sx);
+    ly.dlgY = ly.statusY + ly.statusH + 4;
+    ly.dlgW = SCREEN_WIDTH - (int)(8 * sx);
+    ly.dlgH = 54;
     ly.dlgTextX = ly.dlgX + 8;
     ly.dlgTextY = ly.dlgY + 8;
     ly.dlgTextW = ly.dlgW - 16;
     ly.dlgTextH = ly.dlgH - 16;
 
-    ly.charX = tc.charX;
-    ly.charY = tc.charY;
-    ly.charW = tc.charW;
-    ly.charH = tc.charH;
+    ly.charX = (SCREEN_WIDTH - 175) / 2;
+    ly.charY = ly.dlgY + ly.dlgH + 12;
+    ly.charW = 175;
+    ly.charH = 175;
 
-    ly.kfY = tc.kfY;
-    ly.kfLineH = tc.kfLineH;
-    ly.kfLines = tc.kfLines;
+    int kfTop = ly.charY + ly.charH + 8;
+    ly.kfY = kfTop;
+    ly.kfLineH = max(10, (SCREEN_HEIGHT - kfTop) / 4);
+    ly.kfLines = min(4, (SCREEN_HEIGHT - ly.kfY) / ly.kfLineH);
+
+    // Override with theme config values if an SD theme has custom layout
+    if (LokiSprites::themeLoaded() && tc.headerH > 0) {
+        ly.headerH = tc.headerH;
+
+        if (tc.statsY > 0) ly.statsY = tc.statsY;
+        if (tc.statsIconSize > 0) ly.statIconSize = tc.statsIconSize;
+        if (tc.statsRowH > 0) ly.statRowH = tc.statsRowH;
+        if (tc.statsCols > 0) ly.statColW = SCREEN_WIDTH / tc.statsCols;
+        if (tc.statsRows > 0) ly.statsH = ly.statRowH * tc.statsRows;
+
+        int cols = tc.statsCols > 0 ? tc.statsCols : 3;
+        for (int i = 0; i < 9; i++) {
+            int col = i % cols, row = i / cols;
+            ly.statX[i] = col * ly.statColW + ly.statIconSize + 11;
+            ly.statY[i] = ly.statsY + row * ly.statRowH + ly.statRowH / 2;
+        }
+
+        if (tc.statusY > 0) { ly.statusY = tc.statusY; ly.statusIconY = ly.statusY + (ly.statusH - ly.statusIconSize) / 2; ly.statusTextY = ly.statusY + ly.statusH / 2; }
+        if (tc.statusH > 0) ly.statusH = tc.statusH;
+        if (tc.statusIconX > 0) ly.statusIconX = tc.statusIconX;
+
+        if (tc.dlgX > 0) ly.dlgX = tc.dlgX;
+        if (tc.dlgY > 0) ly.dlgY = tc.dlgY;
+        if (tc.dlgW > 0) ly.dlgW = tc.dlgW;
+        if (tc.dlgH > 0) ly.dlgH = tc.dlgH;
+        ly.dlgTextX = ly.dlgX + 8;
+        ly.dlgTextY = ly.dlgY + 8;
+        ly.dlgTextW = ly.dlgW - 16;
+        ly.dlgTextH = ly.dlgH - 16;
+
+        if (tc.charX > 0) ly.charX = tc.charX;
+        if (tc.charY > 0) ly.charY = tc.charY;
+        if (tc.charW > 0) ly.charW = tc.charW;
+        if (tc.charH > 0) ly.charH = tc.charH;
+
+        if (tc.kfY > 0) ly.kfY = tc.kfY;
+        if (tc.kfLineH > 0) ly.kfLineH = tc.kfLineH;
+        if (tc.kfLines > 0) ly.kfLines = tc.kfLines;
+    }
 }
 
 // =============================================================================
 // SETUP
 // =============================================================================
 
-void setup() {
-    memset(killFeed, 0, sizeof(killFeed));
-    killFeedCount = 0;
-    currentMood = MOOD_IDLE;
-    lastCommentTime = millis();
+void setup(bool fullInit) {
+    if (fullInit) {
+        memset(killFeed, 0, sizeof(killFeed));
+        killFeedCount = 0;
+        currentMood = MOOD_IDLE;
+        lastCommentTime = millis();
+        LokiSprites::setup();
+    }
 
     computeLayout();
+    spriteFrame = 1;
 
-    LokiSprites::setup();
     useSprites = LokiSprites::themeLoaded() && LokiSprites::getFrameCount("idle") > 0;
     hasBG = LokiSprites::themeLoaded();
 
@@ -248,22 +295,29 @@ static void drawHeader() {
     // Title "LOKI" and XP icon are baked into the background
     // Restore the areas where dynamic text goes, then draw new text
 
-    // XP value
-    int textH = 10;
-    restoreBackgroundStrip(TC.xpX, TC.xpY, 55, textH + 2);
+    // XP value — right of the baked-in gold rune icon, vertically centered
+    int xpIconRight = SCREEN_WIDTH / 2 - 4 + 22 - 16;  // Closer to icon, same gap as grid items
+    int xpCenterY = ly.headerH / 2;  // Vertical center of header
+    restoreBackgroundStrip(xpIconRight, 2, 60, ly.headerH - 4);
     char xpBuf[12];
     snprintf(xpBuf, sizeof(xpBuf), "%lu", (unsigned long)displayScore.xp);
     tft.setTextDatum(ML_DATUM);
+    tft.setTextFont(2);
     tft.setTextSize(1);
     tft.setTextColor(TC.colorHighlight);
-    tft.drawString(xpBuf, TC.xpX, TC.xpY + textH / 2);
+    tft.drawString(xpBuf, xpIconRight, xpCenterY);
+    tft.setTextFont(1);  // Reset to default
 
-    // WiFi status
-    restoreBackgroundStrip(TC.wifiX, TC.wifiY, SCREEN_WIDTH - TC.wifiX, textH + 2);
+    // WiFi status — right side of header
+    int wifiX = SCREEN_WIDTH - 85;
+    restoreBackgroundStrip(wifiX, 2, SCREEN_WIDTH - wifiX, ly.headerH - 4);
     tft.setTextDatum(MR_DATUM);
+    tft.setTextFont(2);
+    tft.setTextSize(1);
     bool wifiUp = (WiFi.status() == WL_CONNECTED);
     tft.setTextColor(wifiUp ? TC.colorSuccess : TC.colorTextDim);
-    tft.drawString(wifiUp ? "Connected" : "Offline", SCREEN_WIDTH - 5, TC.wifiY + textH / 2);
+    tft.drawString(wifiUp ? "Connected" : "Offline", SCREEN_WIDTH - 5, xpCenterY);
+    tft.setTextFont(1);
 
     tft.setTextDatum(TL_DATUM);
 }
@@ -288,28 +342,31 @@ static void drawStatValues() {
         displayScore.servicesCracked, zombies, displayScore.filesStolen,
         networkkb, level, displayScore.totalScans,
     };
+    uint16_t statColor = TC.colorText;
     uint16_t colors[9] = {
-        TC.colorAccent, TC.colorAccentBright, TC.colorError,
-        TC.colorCracked, TC.colorAlert, TC.colorText,
-        TC.colorText, TC.colorText, TC.colorAccentBright,
+        statColor, statColor, statColor,
+        statColor, statColor, statColor,
+        statColor, statColor, statColor,
     };
 
+    tft.setTextFont(2);
     tft.setTextSize(1);
     tft.setTextDatum(ML_DATUM);
 
     for (int i = 0; i < 9; i++) {
         // Restore background behind the value area
         int clearX = ly.statX[i];
-        int clearY = ly.statY[i] - 5;
+        int clearY = ly.statY[i] - 8;
         int clearW = ly.statColW - ly.statIconSize - 10;
-        restoreBackgroundStrip(clearX, clearY, clearW, 12);
+        restoreBackgroundStrip(clearX, clearY, clearW, 18);
 
         char buf[10];
         snprintf(buf, sizeof(buf), "%lu", (unsigned long)values[i]);
-        tft.setTextColor(colors[i], TC.colorBg);
-        tft.drawString(buf, ly.statX[i], ly.statY[i]);
+        tft.setTextColor(colors[i]);
+        tft.drawString(buf, ly.statX[i], ly.statY[i] + 1);
     }
 
+    tft.setTextFont(1);  // Reset to default font
     tft.setTextDatum(TL_DATUM);
 }
 
@@ -348,23 +405,26 @@ static void drawStatus() {
         // Draw 28x28 status icon from PROGMEM
         int iconY = ly.statusY + (ly.statusH - STATUS_ICON_SIZE) / 2;
         drawStatusIcon(moodToState(currentMood), 4, iconY);
-        textX = 4 + STATUS_ICON_SIZE + 4;
+        textX = 4 + STATUS_ICON_SIZE + 9;
     } else {
         textX = 8;
     }
 
+    tft.setTextFont(2);
     tft.setTextSize(1);
 
     // Line 1: Action name
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(TC.colorAccent);
-    tft.drawString(statusMain, textX, ly.statusY + 4);
+    tft.drawString(statusMain, textX, ly.statusY + 5);
 
-    // Line 2: Detail text
+    // Line 2: Detail text — same font and color as stats
     if (statusSub[0]) {
-        tft.setTextColor(TC.colorTextDim);
-        tft.drawString(statusSub, textX, ly.statusY + 4 + 14);
+        tft.setTextColor(TC.colorText);
+        tft.drawString(statusSub, textX, ly.statusY + 23);
     }
+
+    tft.setTextFont(1);
 
     tft.setTextDatum(TL_DATUM);
 }
@@ -453,6 +513,7 @@ static void drawDialogue() {
     if (!comment[0]) return;
 
     tft.setTextColor(TC.colorText);
+    tft.setTextFont(2);
     tft.setTextSize(1);
 
     int curX = ly.dlgTextX;
@@ -461,7 +522,7 @@ static void drawDialogue() {
     int maxY = ly.dlgTextY + ly.dlgTextH;
 
     const char* p = comment;
-    while (*p && curY < maxY - 8) {
+    while (*p && curY < maxY - 16) {
         char word[32];
         int wi = 0;
         while (*p && *p != ' ' && wi < 30) word[wi++] = *p++;
@@ -471,14 +532,15 @@ static void drawDialogue() {
         int wordW = tft.textWidth(word);
         if (curX + wordW > maxX && curX > ly.dlgTextX) {
             curX = ly.dlgTextX;
-            curY += 12;
-            if (curY >= maxY - 8) break;
+            curY += 18;  // Font 2 line height
+            if (curY >= maxY - 16) break;
         }
         tft.setCursor(curX, curY);
         tft.print(word);
         tft.print(" ");
         curX += wordW + tft.textWidth(" ");
     }
+    tft.setTextFont(1);
 }
 
 // =============================================================================

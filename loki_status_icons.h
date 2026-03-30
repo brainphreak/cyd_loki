@@ -9,7 +9,7 @@
 #include "asset_sicon_steal.h"
 #include "asset_sicon_vuln.h"
 
-#define STATUS_ICON_SIZE 28
+#define STATUS_ICON_SIZE 42
 
 struct StatusIconEntry {
     const char* name;

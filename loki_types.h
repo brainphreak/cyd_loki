@@ -109,7 +109,8 @@ enum LokiScreen : uint8_t {
     SCREEN_DEVICE_LIST,      // Discovered hosts
     SCREEN_DEVICE_DETAIL,    // Single device info
     SCREEN_STATS,            // Score / stats view
-    SCREEN_LOOT              // Cracked credentials
+    SCREEN_LOOT,             // Cracked credentials
+    SCREEN_THEME_PICKER      // Theme selection
 };
 
 #endif // LOKI_TYPES_H

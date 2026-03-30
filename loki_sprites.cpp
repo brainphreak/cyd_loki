@@ -84,13 +84,27 @@ static void drawProgmemRGB565(const uint16_t* data, int x, int y, int w, int h) 
 }
 
 static void drawProgmemTransparent(const uint16_t* data, int x, int y, int w, int h) {
+    // Composite: replace transparent with PROGMEM background, push full rows
+    static uint16_t rowBuf[320];
+    tft.startWrite();
     for (int row = 0; row < h; row++) {
-        for (int col = 0; col < w; col++) {
+        int len = min(w, 320);
+        for (int col = 0; col < len; col++) {
             uint16_t px = pgm_read_word(&data[row * w + col]);
-            if (px != TRANSPARENT_COLOR)
-                tft.drawPixel(x + col, y + row, px);
+            if (px == TRANSPARENT_COLOR) {
+                int bgX = x + col, bgY = y + row;
+                if (bgX < BG_W && bgY < BG_H)
+                    rowBuf[col] = pgm_read_word(&bg_data[bgY * BG_W + bgX]);
+                else
+                    rowBuf[col] = 0x0861;
+            } else {
+                rowBuf[col] = px;
+            }
         }
+        tft.setAddrWindow(x, y + row, len, 1);
+        tft.pushColors(rowBuf, len);
     }
+    tft.endWrite();
 }
 
 // Find PROGMEM sprite set by state name
@@ -314,10 +328,10 @@ void setup() {
     // Layout defaults (320x480)
     themeConfig.headerY = 0;
     themeConfig.headerH = 32;
-    themeConfig.xpX = SCREEN_WIDTH / 2 + 8;
-    themeConfig.xpY = 8;
-    themeConfig.wifiX = SCREEN_WIDTH - 75;
-    themeConfig.wifiY = 8;
+    themeConfig.xpX = 162;
+    themeConfig.xpY = 16;
+    themeConfig.wifiX = 235;
+    themeConfig.wifiY = 16;
 
     themeConfig.statsY = 34;
     themeConfig.statsRows = 3;
@@ -326,24 +340,28 @@ void setup() {
     themeConfig.statsRowH = themeConfig.statsIconSize + 8;
 
     int statsBottom = themeConfig.statsY + themeConfig.statsRowH * themeConfig.statsRows;
-    themeConfig.statusY = statsBottom + 14;  // After frise
-    themeConfig.statusH = 34;
-    themeConfig.statusIconX = 4;
-    themeConfig.statusTextX = 36;
+    // These values must match what make_background.py produces
+    int friseY = statsBottom + 2;
+    int friseH = 10;
 
-    themeConfig.dlgX = 6;
-    themeConfig.dlgY = themeConfig.statusY + themeConfig.statusH + 4;
-    themeConfig.dlgW = SCREEN_WIDTH - 12;
+    themeConfig.statusY = 125;
+    themeConfig.statusH = 45;
+    themeConfig.statusIconX = 4;
+    themeConfig.statusTextX = 41;
+
+    themeConfig.dlgX = 5;
+    themeConfig.dlgY = 174;
+    themeConfig.dlgW = 309;
     themeConfig.dlgH = 54;
 
-    themeConfig.charX = (SCREEN_WIDTH - 175) / 2;
-    themeConfig.charY = themeConfig.dlgY + themeConfig.dlgH + 12;
+    themeConfig.charX = 72;
+    themeConfig.charY = 236;
     themeConfig.charW = 175;
     themeConfig.charH = 175;
 
-    themeConfig.kfY = themeConfig.charY + themeConfig.charH + 8;
-    themeConfig.kfLines = 4;
-    themeConfig.kfLineH = max(10, (SCREEN_HEIGHT - themeConfig.kfY) / 4);
+    themeConfig.kfY = 416;
+    themeConfig.kfLines = 6;
+    themeConfig.kfLineH = 10;
 
     Serial.printf("[THEME] Built-in fallback: bg + %d states\n", SPRITE_STATE_COUNT);
 
@@ -369,7 +387,11 @@ void setup() {
         File entry = themesDir.openNextFile();
         while (entry && themeCount < MAX_THEMES) {
             if (entry.isDirectory()) {
-                strncpy(themeNames[themeCount], entry.name(), 23);
+                // entry.name() may return full path — extract just the folder name
+                String fullName = String(entry.name());
+                int lastSlash = fullName.lastIndexOf('/');
+                String shortName = (lastSlash >= 0) ? fullName.substring(lastSlash + 1) : fullName;
+                strncpy(themeNames[themeCount], shortName.c_str(), 23);
                 themeNames[themeCount][23] = '\0';
                 Serial.printf("[THEME] Found: %s\n", themeNames[themeCount]);
                 themeCount++;
