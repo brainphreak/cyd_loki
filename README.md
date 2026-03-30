@@ -213,14 +213,14 @@ changeme
 | File Stealing (SMB) | ✅ | ❌ | 📋 Planned |
 | File Stealing (Telnet) | ✅ | ❌ | 📋 Planned |
 | SQL Data Theft | ✅ | ❌ | 📋 Planned |
-| MAC OUI Vendor Lookup | ✅ | ✅ (9,673 entries) | ✅ Complete |
+| MAC OUI Vendor Lookup | ✅ | ✅ (9,673 built-in + 35,000+ on SD) | ✅ Complete |
 | Device Classification | ✅ | ✅ | ✅ Complete |
 | OS Detection | ✅ (nmap) | ❌ | 📋 Planned |
 | Hostname Resolution | ✅ (DNS/NetBIOS/mDNS) | ❌ | 📋 Planned |
 | Virtual Pet UI | ✅ | ✅ | ✅ Complete |
-| Theme System | ✅ (6 themes) | ✅ (6 themes) | ✅ Complete |
-| Theme Colors | ✅ | ✅ | ✅ Complete |
-| Theme Layout Override | ✅ | ✅ | ✅ Complete |
+| Theme System | ✅ (6 themes) | ✅ (6 themes) | 🚧 In Progress |
+| Theme Colors | ✅ | ✅ | 🚧 In Progress |
+| Theme Layout Override | ✅ | ✅ | 🚧 In Progress |
 | Character Animations | ✅ (all frames) | ✅ (all frames) | ✅ Complete |
 | Sequential/Random Anim | ✅ | ✅ | ✅ Complete |
 | Commentary System | ✅ | ✅ | ✅ Complete |
