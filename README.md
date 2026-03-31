@@ -132,18 +132,18 @@ Special thanks to [HaleHound-CYD](https://github.com/JesseCHale/HaleHound-CYD) b
 
 ### Quick Flash (No Install Required)
 
-A pre-built firmware binary is included: `firmware-esp32-e32r35t.bin`
+A pre-built firmware binary is included: `binaries/loki-cyd-e32r35t-FULL.bin`
 
 **Using esptool:**
 ```bash
-esptool.py --port /dev/cu.usbserial-XXX write_flash 0x10000 firmware-esp32-e32r35t.bin
+esptool.py --port /dev/cu.usbserial-XXX write_flash 0x0 binaries/loki-cyd-e32r35t-FULL.bin
 ```
 
 **Using ESP Web Flasher:**
 1. Open [ESP Web Flasher](https://esp.huhn.me) in **Chrome**, **Edge**, or **Opera**
 2. Click **Connect** and select your board's serial port
-3. Set address to: **0x10000**
-4. Click **Choose File** and select `firmware-esp32-e32r35t.bin`
+3. Set address to: **0x0**
+4. Click **Choose File** and select `loki-cyd-e32r35t-FULL.bin`
 5. Click **Program**
 6. Wait for completion, then power cycle the board
 
