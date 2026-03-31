@@ -91,6 +91,12 @@ void runTouchCalibration() {
     delay(1000);
 }
 
+void clearTouchCalibration() {
+    prefs.begin("loki", false);
+    prefs.putBool("calibrated", false);
+    prefs.end();
+}
+
 void loadTouchCalibration() {
     prefs.begin("loki", true);
     touchCalibrated = prefs.getBool("calibrated", false);
@@ -444,20 +450,30 @@ void handleTouch() {
 // MENU
 // =============================================================================
 
-#define MENU_ITEMS 11
+#define MENU_ITEMS 7
 static const char* menuLabels[MENU_ITEMS] = {
-    "WiFi",
     "Auto",
-    "Web UI",
     "Manual",
     "Hosts",
     "Credentials",
     "Attack Log",
-    "Stats",
-    "Theme",
-    "Brightness",
+    "Settings",
     "Back"
 };
+
+#define SETTINGS_ITEMS 8
+static const char* settingsLabels[SETTINGS_ITEMS] = {
+    "WiFi",
+    "Web UI",
+    "Theme",
+    "Brightness",
+    "Calibrate",
+    "Stats",
+    "Clear Data",
+    "Back"
+};
+
+static bool inSettingsMenu = false;
 
 // Brightness levels
 static const int brightnessLevels[] = {25, 50, 75, 100};
@@ -471,162 +487,199 @@ static void setBrightness(int percent) {
 }
 static int currentThemeIdx = 0;
 
-void drawMenu() {
+static void drawMenuItems(const char** labels, int count, const char* title) {
     tft.fillScreen(LOKI_BG_DARK);
 
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(LOKI_GREEN);
     tft.setTextSize(2);
-    tft.drawString("LOKI MENU", SCREEN_WIDTH / 2, 20);
+    tft.drawString(title, SCREEN_WIDTH / 2, 20);
 
+    tft.setTextFont(2);
     tft.setTextSize(1);
     int startY = 45;
-    int itemH = (SCREEN_HEIGHT - startY - 10) / MENU_ITEMS;
-    if (itemH > SCALE_H(35)) itemH = SCALE_H(35);
+    int itemH = (SCREEN_HEIGHT - startY - 10) / count;
+    if (itemH > 55) itemH = 55;
 
-    for (int i = 0; i < MENU_ITEMS; i++) {
+    for (int i = 0; i < count; i++) {
         int y = startY + i * itemH;
         uint16_t color = LOKI_TEXT;
-
-        tft.setTextColor(color);
-
         char label[36];
-        if (i == 0) {
-            bool wifiUp = (WiFi.status() == WL_CONNECTED);
-            snprintf(label, sizeof(label), "WiFi: %s", wifiUp ? WiFi.SSID().c_str() : "Connect");
-            if (wifiUp) color = LOKI_GREEN;
-        } else if (i == 1) {
-            snprintf(label, sizeof(label), "Auto: %s", LokiRecon::isRunning() ? "STOP" : "START");
-            if (!WiFi.isConnected()) color = LOKI_TEXT_DIM;
-        } else if (i == 2) {
-            snprintf(label, sizeof(label), "Web UI: %s", LokiWeb::isRunning() ? "ON" : "OFF");
-            if (!WiFi.isConnected()) color = LOKI_TEXT_DIM;
-        } else if (i == 3) {
-            strncpy(label, "Manual", sizeof(label));
-            if (!WiFi.isConnected()) color = LOKI_TEXT_DIM;
-        } else if (i == 8 && LokiSprites::getThemeCount() > 0) {
-            snprintf(label, sizeof(label), "Theme: %s", LokiSprites::getThemeConfig().name);
-        } else if (i == 9) {
-            snprintf(label, sizeof(label), "Brightness: %d%%", brightnessLevels[brightnessIdx]);
+
+        if (!inSettingsMenu) {
+            // Main menu dynamic labels
+            if (i == 0) {
+                snprintf(label, sizeof(label), "Auto: %s", LokiRecon::isRunning() ? "STOP" : "START");
+                if (!WiFi.isConnected()) color = LOKI_TEXT_DIM;
+            } else if (i == 1) {
+                strncpy(label, "Manual", sizeof(label));
+                if (!WiFi.isConnected()) color = LOKI_TEXT_DIM;
+            } else {
+                strncpy(label, labels[i], sizeof(label));
+            }
         } else {
-            strncpy(label, menuLabels[i], sizeof(label));
+            // Settings menu dynamic labels
+            if (i == 0) {
+                bool wifiUp = (WiFi.status() == WL_CONNECTED);
+                snprintf(label, sizeof(label), "WiFi: %s", wifiUp ? WiFi.SSID().c_str() : "Connect");
+                if (wifiUp) color = LOKI_GREEN;
+            } else if (i == 1) {
+                snprintf(label, sizeof(label), "Web UI: %s", LokiWeb::isRunning() ? "ON" : "OFF");
+            } else if (i == 2) {
+                snprintf(label, sizeof(label), "Theme: %s", LokiSprites::getThemeConfig().name);
+            } else if (i == 3) {
+                snprintf(label, sizeof(label), "Brightness: %d%%", brightnessLevels[brightnessIdx]);
+            } else {
+                strncpy(label, labels[i], sizeof(label));
+            }
         }
 
         tft.setTextColor(color);
         tft.drawString(label, SCREEN_WIDTH / 2, y + itemH / 2);
-
         tft.drawLine(10, y + itemH - 1, SCREEN_WIDTH - 10, y + itemH - 1, LOKI_BG_ELEVATED);
     }
 
+    tft.setTextFont(1);
     tft.setTextDatum(TL_DATUM);
 }
 
+void drawMenu() {
+    inSettingsMenu = false;
+    drawMenuItems(menuLabels, MENU_ITEMS, "LOKI MENU");
+}
+
+void drawSettingsMenu() {
+    inSettingsMenu = true;
+    drawMenuItems(settingsLabels, SETTINGS_ITEMS, "SETTINGS");
+}
+
 void handleMenuTouch(int x, int y) {
+    int count = inSettingsMenu ? SETTINGS_ITEMS : MENU_ITEMS;
     int startY = 45;
-    int itemH = (SCREEN_HEIGHT - startY - 10) / MENU_ITEMS;
-    if (itemH > SCALE_H(35)) itemH = SCALE_H(35);
+    int itemH = (SCREEN_HEIGHT - startY - 10) / count;
+    if (itemH > 55) itemH = 55;
     int selected = (y - startY) / itemH;
 
-    if (selected < 0 || selected >= MENU_ITEMS) return;
+    if (selected < 0 || selected >= count) return;
 
-    switch (selected) {
-        case 0: // WiFi
-            currentScreen = SCREEN_WIFI_SCAN;
-            LokiUI::drawWifiScan();
-            break;
+    if (!inSettingsMenu) {
+        // === MAIN MENU ===
+        switch (selected) {
+            case 0: // Auto — toggle
+                if (LokiRecon::isRunning()) {
+                    LokiRecon::stop();
+                    autonomousMode = false;
+                    LokiPet::setMood(MOOD_IDLE);
+                    LokiPet::setStatus("Idle");
+                } else if (WiFi.isConnected()) {
+                    autonomousMode = true;
+                    LokiRecon::start();
+                    LokiPet::setStatus("Auto started");
+                } else {
+                    LokiPet::setStatus("Connect WiFi first");
+                }
+                currentScreen = SCREEN_PET;
+                LokiPet::drawPetScreen();
+                break;
 
-        case 1: // Auto — toggle start/stop
-            if (LokiRecon::isRunning()) {
-                LokiRecon::stop();
-                autonomousMode = false;
-                LokiPet::setMood(MOOD_IDLE);
-                LokiPet::setStatus("Idle");
-            } else if (WiFi.isConnected()) {
-                autonomousMode = true;
-                LokiRecon::start();
-                LokiPet::setStatus("Auto started");
-            } else {
-                LokiPet::setStatus("Connect WiFi first");
-            }
-            currentScreen = SCREEN_PET;
-            LokiPet::drawPetScreen();
-            break;
+            case 1: // Manual
+                if (WiFi.isConnected()) {
+                    currentScreen = SCREEN_DEVICE_LIST;
+                    LokiUI::setDetailDevice(-1);
+                    LokiUI::drawDeviceList();
+                } else {
+                    LokiPet::setStatus("Connect WiFi first");
+                    currentScreen = SCREEN_PET;
+                    LokiPet::drawPetScreen();
+                }
+                break;
 
-        case 2: // Web UI — toggle
-            if (!WiFi.isConnected()) {
-                LokiPet::setStatus("Connect WiFi first");
-            } else if (LokiWeb::isRunning()) {
-                LokiWeb::stop();
-                saveWebUISetting(false);
-                LokiPet::setStatus("Idle");
-            } else {
-                LokiWeb::setup();
-                saveWebUISetting(true);
-                char msg[40];
-                snprintf(msg, sizeof(msg), "Web: %s", WiFi.localIP().toString().c_str());
-                LokiPet::setStatus(msg);
-            }
-            drawMenu();
-            return;
-
-        case 3: // Manual — show hosts for manual attack selection
-            if (WiFi.isConnected()) {
+            case 2: // Hosts
                 currentScreen = SCREEN_DEVICE_LIST;
                 LokiUI::setDetailDevice(-1);
                 LokiUI::drawDeviceList();
-            } else {
-                LokiPet::setStatus("Connect WiFi first");
+                break;
+
+            case 3: // Credentials
+                currentScreen = SCREEN_LOOT;
+                LokiUI::drawLootView();
+                break;
+
+            case 4: // Attack Log
+                currentScreen = SCREEN_KILL_FEED;
+                attackLogScroll = max(0, LokiPet::getKillFeedCount() - 30);
+                drawAttackLog();
+                break;
+
+            case 5: // Settings
+                drawSettingsMenu();
+                return;
+
+            case 6: // Back
                 currentScreen = SCREEN_PET;
                 LokiPet::drawPetScreen();
-            }
-            break;
+                break;
+        }
+    } else {
+        // === SETTINGS MENU ===
+        switch (selected) {
+            case 0: // WiFi
+                currentScreen = SCREEN_WIFI_SCAN;
+                LokiUI::drawWifiScan();
+                break;
 
-        case 4: // Hosts
-            currentScreen = SCREEN_DEVICE_LIST;
-            LokiUI::setDetailDevice(-1);
-            LokiUI::drawDeviceList();
-            break;
+            case 1: // Web UI — toggle
+                if (!WiFi.isConnected()) {
+                    LokiPet::setStatus("Connect WiFi first");
+                } else if (LokiWeb::isRunning()) {
+                    LokiWeb::stop();
+                    saveWebUISetting(false);
+                } else {
+                    LokiWeb::setup();
+                    saveWebUISetting(true);
+                }
+                drawSettingsMenu();
+                return;
 
-        case 5: // Loot
-            currentScreen = SCREEN_LOOT;
-            LokiUI::drawLootView();
-            break;
+            case 2: // Theme
+                if (LokiSprites::getThemeCount() == 0) LokiSprites::setup();
+                if (LokiSprites::getThemeCount() > 0) {
+                    currentScreen = SCREEN_THEME_PICKER;
+                    drawThemePicker();
+                } else {
+                    drawSettingsMenu();
+                }
+                return;
 
-        case 6: // Attack Log
-            currentScreen = SCREEN_KILL_FEED;
-            attackLogScroll = max(0, LokiPet::getKillFeedCount() - 30); // Start near bottom
-            drawAttackLog();
-            break;
+            case 3: // Brightness
+                brightnessIdx = (brightnessIdx + 1) % 4;
+                setBrightness(brightnessLevels[brightnessIdx]);
+                drawSettingsMenu();
+                return;
 
-        case 7: // Stats
-            currentScreen = SCREEN_STATS;
-            drawStatsScreen();
-            break;
+            case 4: // Calibrate
+                #ifdef CYD_35
+                  clearTouchCalibration();
+                  runTouchCalibration();
+                #endif
+                drawSettingsMenu();
+                return;
 
-        case 8: // Theme — open theme picker
-            if (LokiSprites::getThemeCount() == 0) {
-                LokiSprites::setup();
-            }
-            if (LokiSprites::getThemeCount() > 0) {
-                currentScreen = SCREEN_THEME_PICKER;
-                drawThemePicker();
-            } else {
-                // Don't change status — just stay in menu
+            case 5: // Stats
+                currentScreen = SCREEN_STATS;
+                drawStatsScreen();
+                break;
+
+            case 6: // Clear Data
+                LokiScoreManager::reset();
+                LokiPet::setStatus("Data cleared");
+                drawSettingsMenu();
+                return;
+
+            case 7: // Back to main menu
                 drawMenu();
                 return;
-            }
-            break;
-
-        case 9: // Brightness — cycle through levels
-            brightnessIdx = (brightnessIdx + 1) % 4;
-            setBrightness(brightnessLevels[brightnessIdx]);
-            drawMenu();  // Redraw to show new level
-            return;
-
-        case 10: // Back
-            currentScreen = SCREEN_PET;
-            LokiPet::drawPetScreen();
-            break;
+        }
     }
 }
 

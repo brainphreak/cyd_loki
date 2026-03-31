@@ -375,7 +375,7 @@ static void drawStatValues() {
 // =============================================================================
 
 static void drawStatusIconOnScreen(const char* state, int x, int y) {
-    // Try SD theme status icon first
+    // Try SD theme 42x42 status icon first
     if (LokiSprites::drawStatusIcon(state, x, y)) return;
 
     // Fall back to PROGMEM status icons (loki only)

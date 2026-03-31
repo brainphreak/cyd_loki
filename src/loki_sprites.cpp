@@ -614,44 +614,10 @@ bool drawCharacterFrame(const char* state, int frame, int x, int y) {
 bool drawStatusIcon(const char* state, int x, int y) {
     if (!usingSDTheme) return false;
 
-    // Find the file WITHOUT a number in the state subfolder
-    char stateDir[80];
-    snprintf(stateDir, sizeof(stateDir), "%s%s", currentThemePath, state);
-
-    if (!mountSD()) return false;
-
-    if (!SD.exists(stateDir)) { unmountSD(); return false; }
-
-    File dir = SD.open(stateDir);
-    if (!dir || !dir.isDirectory()) { unmountSD(); return false; }
-
-    char iconPath[120] = {0};
-    File entry = dir.openNextFile();
-    while (entry) {
-        String fname = String(entry.name());
-        int lastSlash = fname.lastIndexOf('/');
-        String shortName = (lastSlash >= 0) ? fname.substring(lastSlash + 1) : fname;
-
-        if (shortName.endsWith(".bmp")) {
-            // Check if it has NO digit — that's the status icon
-            bool hasDigit = false;
-            for (int c = 0; c < (int)shortName.length(); c++) {
-                if (isdigit(shortName.charAt(c))) { hasDigit = true; break; }
-            }
-            if (!hasDigit) {
-                snprintf(iconPath, sizeof(iconPath), "%s/%s", stateDir, shortName.c_str());
-                break;
-            }
-        }
-        entry = dir.openNextFile();
-    }
-    dir.close();
-    unmountSD();
-
-    if (iconPath[0]) {
-        return drawSDBmpTransparent(iconPath, x, y);
-    }
-    return false;
+    // Look for the 42x42 status icon: <state>/<state>_icon.bmp
+    char iconPath[100];
+    snprintf(iconPath, sizeof(iconPath), "%s%s/%s_icon.bmp", currentThemePath, state, state);
+    return drawSDBmpTransparent(iconPath, x, y);
 }
 
 // =============================================================================

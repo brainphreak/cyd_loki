@@ -110,14 +110,15 @@ def png_to_rgb565_bmp(input_path, output_path, size, bg_color=(255, 0, 255)):
     print(f"  {os.path.basename(output_path)} ({width}x{height})")
 
 def select_frames(frame_dir, prefix, count=4):
-    """Select evenly-spaced frames from an animation directory."""
-    # Only include numbered frames (e.g. IDLE1.png, not IDLE.png which is the status icon)
+    """Select frames from an animation directory.
+    Grabs ALL image files that have a number in their name, regardless of prefix.
+    This handles themes like knight where idle files are named 'Sir Haxalot 01.png'.
+    Files WITHOUT numbers (e.g. IDLE.png) are status icons, not animation frames.
+    """
     files = sorted([
         f for f in os.listdir(frame_dir)
-        if (f.endswith('.png') or f.endswith('.bmp'))
-        and f.startswith(prefix)
+        if (f.lower().endswith('.png') or f.lower().endswith('.bmp'))
         and any(c.isdigit() for c in os.path.splitext(f)[0])
-        and os.path.splitext(f)[0] != prefix  # Exclude exact match (no number)
     ], key=lambda f: int(''.join(filter(str.isdigit, os.path.splitext(f)[0])) or '0'))
 
     if not files:

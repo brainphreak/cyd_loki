@@ -122,13 +122,13 @@ def main():
         state_dir = os.path.join(theme_folder, state_name)
         os.makedirs(state_dir, exist_ok=True)
 
-        # Convert status icon (file without number)
+        # Convert status icon (file without number) at 42x42 for status bar
         status_icon = os.path.join(src, f"{folder}.png")
         if not os.path.exists(status_icon):
             status_icon = os.path.join(src, f"{folder}.bmp")
         if os.path.exists(status_icon):
-            icon_out = os.path.join(state_dir, f"{state_name}.bmp")
-            png_to_rgb565_bmp(status_icon, icon_out, sprite_size, bg_color)
+            icon_out = os.path.join(state_dir, f"{state_name}_icon.bmp")
+            png_to_rgb565_bmp(status_icon, icon_out, 42, bg_color)
 
         # Convert animation frames
         frames = select_frames(src, prefix, count)
