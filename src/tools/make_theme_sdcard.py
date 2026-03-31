@@ -99,6 +99,7 @@ def main():
     status_dir = os.path.join(theme_dir, 'images', 'status')
     bg_color = (255, 0, 255)  # Magenta transparency key
 
+    # Map internal state names to original Loki folder names
     states = {
         'idle':   ('IDLE', 'IDLE', 0),               # 0 = ALL frames
         'scan':   ('NetworkScanner', 'NetworkScanner', 0),
@@ -117,9 +118,22 @@ def main():
             print(f"    SKIP {state_name}")
             continue
 
+        # Create subfolder for this state (using internal name)
+        state_dir = os.path.join(theme_folder, state_name)
+        os.makedirs(state_dir, exist_ok=True)
+
+        # Convert status icon (file without number)
+        status_icon = os.path.join(src, f"{folder}.png")
+        if not os.path.exists(status_icon):
+            status_icon = os.path.join(src, f"{folder}.bmp")
+        if os.path.exists(status_icon):
+            icon_out = os.path.join(state_dir, f"{state_name}.bmp")
+            png_to_rgb565_bmp(status_icon, icon_out, sprite_size, bg_color)
+
+        # Convert animation frames
         frames = select_frames(src, prefix, count)
         for i, frame_path in enumerate(frames):
-            out_path = os.path.join(theme_folder, f"{state_name}{i + 1}.bmp")
+            out_path = os.path.join(state_dir, f"{state_name}{i + 1}.bmp")
             png_to_rgb565_bmp(frame_path, out_path, sprite_size, bg_color)
             total_sprites += 1
 

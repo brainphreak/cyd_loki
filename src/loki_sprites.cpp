@@ -451,16 +451,45 @@ bool loadTheme(const char* themeName) {
     snprintf(cfgPath, sizeof(cfgPath), "%stheme.cfg", currentThemePath);
     parseThemeConfig(cfgPath);
 
-    // Count frames per state
+    // Count frames per state — look in subfolders
+    // Files WITH a number = animation frames, files WITHOUT = status icon
     for (int s = 0; s < MAX_STATES && sdStates[s].name[0]; s++) {
         sdStates[s].frameCount = 0;
-        for (int f = 1; f <= 20; f++) {
-            char path[64];
-            snprintf(path, sizeof(path), "%s%s%d.bmp", currentThemePath, sdStates[s].name, f);
-            if (SD.exists(path)) {
-                sdStates[s].frameCount = f;
-            } else break;
+        char stateDir[80];
+        snprintf(stateDir, sizeof(stateDir), "%s%s", currentThemePath, sdStates[s].name);
+
+        if (SD.exists(stateDir)) {
+            File dir = SD.open(stateDir);
+            if (dir && dir.isDirectory()) {
+                File entry = dir.openNextFile();
+                while (entry) {
+                    String fname = String(entry.name());
+                    int lastSlash = fname.lastIndexOf('/');
+                    if (lastSlash >= 0) fname = fname.substring(lastSlash + 1);
+
+                    // Only count .bmp files that have a digit in the name
+                    if (fname.endsWith(".bmp")) {
+                        bool hasDigit = false;
+                        for (int c = 0; c < (int)fname.length(); c++) {
+                            if (isdigit(fname.charAt(c))) { hasDigit = true; break; }
+                        }
+                        if (hasDigit) sdStates[s].frameCount++;
+                    }
+                    entry = dir.openNextFile();
+                }
+                dir.close();
+            }
+        } else {
+            // Fallback: try flat files (old format: idle1.bmp, idle2.bmp...)
+            for (int f = 1; f <= 999; f++) {
+                char path[80];
+                snprintf(path, sizeof(path), "%s%s%d.bmp", currentThemePath, sdStates[s].name, f);
+                if (SD.exists(path)) {
+                    sdStates[s].frameCount = f;
+                } else break;
+            }
         }
+
         if (sdStates[s].frameCount > 0)
             Serial.printf("[THEME] %s: %d frames\n", sdStates[s].name, sdStates[s].frameCount);
     }
@@ -506,13 +535,58 @@ bool drawBackground() {
 // DRAW CHARACTER FRAME
 // =============================================================================
 
+// Find the Nth numbered BMP file in a state subfolder
+static bool findNthFrame(const char* stateDir, int n, char* outPath, int outLen) {
+    if (!mountSD()) return false;
+
+    File dir = SD.open(stateDir);
+    if (!dir || !dir.isDirectory()) { unmountSD(); return false; }
+
+    // Collect numbered BMP filenames, find the nth one (1-based)
+    int count = 0;
+    File entry = dir.openNextFile();
+    while (entry) {
+        String fname = String(entry.name());
+        int lastSlash = fname.lastIndexOf('/');
+        String shortName = (lastSlash >= 0) ? fname.substring(lastSlash + 1) : fname;
+
+        if (shortName.endsWith(".bmp")) {
+            bool hasDigit = false;
+            for (int c = 0; c < (int)shortName.length(); c++) {
+                if (isdigit(shortName.charAt(c))) { hasDigit = true; break; }
+            }
+            if (hasDigit) {
+                count++;
+                if (count == n) {
+                    snprintf(outPath, outLen, "%s/%s", stateDir, shortName.c_str());
+                    dir.close();
+                    unmountSD();
+                    return true;
+                }
+            }
+        }
+        entry = dir.openNextFile();
+    }
+    dir.close();
+    unmountSD();
+    return false;
+}
+
 bool drawCharacterFrame(const char* state, int frame, int x, int y) {
-    // Try SD theme first
+    // Try SD theme — subfolder format first
     if (usingSDTheme) {
-        char path[64];
-        snprintf(path, sizeof(path), "%s%s%d.bmp", currentThemePath, state, frame);
-        if (drawSDBmpTransparent(path, x, y)) return true;
-        // SD failed — fall through to PROGMEM
+        char stateDir[80];
+        snprintf(stateDir, sizeof(stateDir), "%s%s", currentThemePath, state);
+
+        char framePath[120];
+        if (findNthFrame(stateDir, frame, framePath, sizeof(framePath))) {
+            if (drawSDBmpTransparent(framePath, x, y)) return true;
+        }
+
+        // Fallback: try old flat format (state1.bmp, state2.bmp)
+        char flatPath[80];
+        snprintf(flatPath, sizeof(flatPath), "%s%s%d.bmp", currentThemePath, state, frame);
+        if (drawSDBmpTransparent(flatPath, x, y)) return true;
     }
 
     // Built-in PROGMEM fallback (1 still frame per state)
