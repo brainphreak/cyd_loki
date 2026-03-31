@@ -374,22 +374,36 @@ static void drawStatValues() {
 // DRAW DYNAMIC: Status line (with optional icon)
 // =============================================================================
 
-static void drawStatusIcon(const char* state, int x, int y) {
-    // Find and draw the PROGMEM status icon for this state
+static void drawStatusIconOnScreen(const char* state, int x, int y) {
+    // Try SD theme status icon first
+    if (LokiSprites::drawStatusIcon(state, x, y)) return;
+
+    // Fall back to PROGMEM status icons (loki only)
     for (int i = 0; i < STATUS_ICON_COUNT; i++) {
         const char* name = (const char*)pgm_read_ptr(&statusIcons[i].name);
         if (strcmp(name, state) == 0) {
             const uint16_t* data = (const uint16_t*)pgm_read_ptr(&statusIcons[i].data);
             if (data) {
-                // Draw with transparency
+                static uint16_t iconBuf[320];
+                tft.startWrite();
                 for (int row = 0; row < STATUS_ICON_SIZE; row++) {
-                    for (int col = 0; col < STATUS_ICON_SIZE; col++) {
+                    int len = min(STATUS_ICON_SIZE, 320);
+                    for (int col = 0; col < len; col++) {
                         uint16_t px = pgm_read_word(&data[row * STATUS_ICON_SIZE + col]);
-                        if (px != 0xF81F) {  // Skip magenta
-                            tft.drawPixel(x + col, y + row, px);
+                        if (px == 0xF81F) {
+                            int bgX = x + col, bgY = y + row;
+                            if (bgX < BG_W && bgY < BG_H)
+                                iconBuf[col] = pgm_read_word(&bg_data[bgY * BG_W + bgX]);
+                            else
+                                iconBuf[col] = 0x0861;
+                        } else {
+                            iconBuf[col] = px;
                         }
                     }
+                    tft.setAddrWindow(x, y + row, len, 1);
+                    tft.pushColors(iconBuf, len);
                 }
+                tft.endWrite();
             }
             return;
         }
@@ -404,7 +418,7 @@ static void drawStatus() {
     if (showStatusIcon) {
         // Draw 28x28 status icon from PROGMEM
         int iconY = ly.statusY + (ly.statusH - STATUS_ICON_SIZE) / 2;
-        drawStatusIcon(moodToState(currentMood), 4, iconY);
+        drawStatusIconOnScreen(moodToState(currentMood), 4, iconY);
         textX = 4 + STATUS_ICON_SIZE + 9;
     } else {
         textX = 8;

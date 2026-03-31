@@ -89,6 +89,9 @@ bool drawCharacterFrame(const char* state, int frame, int x, int y);
 // Get the number of available frames for a state
 int getFrameCount(const char* state);
 
+// Draw status icon from SD theme (the numberless file in the state subfolder)
+bool drawStatusIcon(const char* state, int x, int y);
+
 // Is SD card available?
 bool sdAvailable();
 
