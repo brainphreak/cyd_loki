@@ -271,12 +271,18 @@ static void redrawBackground() {
 // DRAW DYNAMIC: Header (LOKI + XP + mood)
 // =============================================================================
 
-static void restoreBackgroundStrip(int x, int y, int w, int h) {
-    if (useSprites && LokiSprites::sdAvailable()) {
-        // SD theme active — fill with theme bg color (handles white themes)
-        tft.fillRect(x, y, w, h, TC.colorBg);
-    } else if (x >= 0 && y >= 0 && x + w <= BG_W && y + h <= BG_H && w <= BG_W) {
-        // PROGMEM fallback — restore from built-in background data
+// Clear functions for different area types:
+// - Header/stat text: use surface color (flat area next to baked icons)
+// - Character/dialogue: use bg color (flat open area)
+// - Kill feed: always black
+// - PROGMEM fallback: pixel-perfect restore from built-in bg data
+
+static void clearWithColor(int x, int y, int w, int h, uint16_t color) {
+    tft.fillRect(x, y, w, h, color);
+}
+
+static void restoreFromProgmem(int x, int y, int w, int h) {
+    if (x >= 0 && y >= 0 && x + w <= BG_W && y + h <= BG_H && w <= BG_W) {
         static uint16_t rowBuf[320];
         tft.startWrite();
         for (int row = y; row < y + h; row++) {
@@ -288,8 +294,16 @@ static void restoreBackgroundStrip(int x, int y, int w, int h) {
             tft.pushColors(rowBuf, len);
         }
         tft.endWrite();
+    }
+}
+
+static void clearArea(int x, int y, int w, int h, uint16_t color) {
+    if (!useSprites) {
+        // No SD theme — use PROGMEM pixel-perfect restore
+        restoreFromProgmem(x, y, w, h);
     } else {
-        tft.fillRect(x, y, w, h, TC.colorBg);
+        // SD theme — fill with flat color
+        clearWithColor(x, y, w, h, color);
     }
 }
 
@@ -300,7 +314,7 @@ static void drawHeader() {
     // XP value — right of the baked-in gold rune icon, vertically centered
     int xpIconRight = SCREEN_WIDTH / 2 - 4 + 22 - 16;  // Closer to icon, same gap as grid items
     int xpCenterY = ly.headerH / 2;  // Vertical center of header
-    restoreBackgroundStrip(xpIconRight, 2, 60, ly.headerH - 4);
+    clearArea(xpIconRight, 2, 60, ly.headerH - 4, TC.colorSurface);
     char xpBuf[12];
     snprintf(xpBuf, sizeof(xpBuf), "%lu", (unsigned long)displayScore.xp);
     tft.setTextDatum(ML_DATUM);
@@ -312,7 +326,7 @@ static void drawHeader() {
 
     // WiFi status — right side of header
     int wifiX = SCREEN_WIDTH - 85;
-    restoreBackgroundStrip(wifiX, 2, SCREEN_WIDTH - wifiX, ly.headerH - 4);
+    clearArea(wifiX, 2, SCREEN_WIDTH - wifiX, ly.headerH - 4, TC.colorSurface);
     tft.setTextDatum(MR_DATUM);
     tft.setTextFont(2);
     tft.setTextSize(1);
@@ -360,7 +374,7 @@ static void drawStatValues() {
         int clearX = ly.statX[i];
         int clearY = ly.statY[i] - 8;
         int clearW = ly.statColW - ly.statIconSize - 10;
-        restoreBackgroundStrip(clearX, clearY, clearW, 18);
+        clearArea(clearX, clearY, clearW, 18, TC.colorBg);
 
         char buf[10];
         snprintf(buf, sizeof(buf), "%lu", (unsigned long)values[i]);
@@ -414,7 +428,7 @@ static void drawStatusIconOnScreen(const char* state, int x, int y) {
 
 static void drawStatus() {
     // Clear status area
-    restoreBackgroundStrip(0, ly.statusY, SCREEN_WIDTH, ly.statusH);
+    clearArea(0, ly.statusY, SCREEN_WIDTH, ly.statusH, TC.colorSurface);
 
     int textX;
     if (showStatusIcon) {
@@ -524,7 +538,7 @@ static void drawCharacterFallback() {
 
 static void drawDialogue() {
     // Restore the baked-in speech bubble background to clear old text
-    restoreBackgroundStrip(ly.dlgX, ly.dlgY, ly.dlgW, ly.dlgH + 10); // +10 for tail
+    clearArea(ly.dlgX, ly.dlgY, ly.dlgW, ly.dlgH + 10, TC.colorElevated); // +10 for tail
 
     if (!comment[0]) return;
 
@@ -566,7 +580,7 @@ static void drawDialogue() {
 static void drawKillFeed() {
     // Clear kill feed area
     int kfH = ly.kfLineH * ly.kfLines;
-    tft.fillRect(0, ly.kfY, SCREEN_WIDTH, kfH, TC.colorBg);
+    tft.fillRect(0, ly.kfY, SCREEN_WIDTH, kfH, 0x0000);  // Always black for readability
 
     tft.setTextSize(1);
     int startIdx = killFeedCount - ly.kfLines;
