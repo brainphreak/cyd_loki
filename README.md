@@ -77,12 +77,14 @@ Special thanks to [HaleHound-CYD](https://github.com/JesseCHale/HaleHound-CYD) b
 - Downloadable via web UI
 
 ### Theme System
-- **Built-in fallback theme** — 7 still sprites + background in PROGMEM, works without SD card
+- **Built-in fallback theme** — Loki Dark with 7 still sprites + background in PROGMEM, works without SD card
 - **SD card animated themes** — Full animation with 50-300 frames per theme
-- **6 themes included** — Loki, Loki Dark, Bjorn, Clown, Knight, Pirate
-- **Fully customizable** — Colors, layout coordinates, animation timing all configurable via `theme.cfg`
-- **Theme picker** — Switch themes from the touchscreen menu
-- See [THEME_DEVELOPMENT.md](THEME_DEVELOPMENT.md) for creating custom themes
+- **8 themes included** — BJORN, Cap'n Plndr, Cap'n Plndr Dark, ClownSec, ClownSec Dark, LOKI, LOKI Dark, Sir Haxalot
+- **Per-element customization** — Every dynamic UI element (each stat, XP, WiFi text, status lines, comments, kill feed) has its own position, font, color, and alignment settable in `theme.cfg`
+- **Theme-aware kill feed** — 8 color types (info, found, success, cracked, dim, attack, error, XP) customizable per theme
+- **Theme persistence** — Selected theme saved to NVS, restored on boot (default: LOKI Dark)
+- **Theme picker** — Alphabetically sorted, switch themes from the touchscreen menu
+- See [THEME_FORMAT.md](THEME_FORMAT.md) for the full theme.cfg specification
 
 ### Touch Interface
 - 11-item main menu (WiFi, Auto, Web UI, Manual, Hosts, Credentials, Attack Log, Stats, Theme, Brightness, Back)
@@ -105,6 +107,7 @@ Special thanks to [HaleHound-CYD](https://github.com/JesseCHale/HaleHound-CYD) b
 
 ### Persistence
 - **WiFi credentials** — saved to NVS, auto-reconnects on boot
+- **Selected theme** — saved to NVS, restored on boot
 - **Scan results** — credentials, devices, attack log saved to SPIFFS
 - **Scores** — XP and all stats persist across reboots
 - **Web UI setting** — on/off state persists
@@ -129,12 +132,18 @@ Special thanks to [HaleHound-CYD](https://github.com/JesseCHale/HaleHound-CYD) b
 
 ### Quick Flash (No Install Required)
 
-Pre-built binaries are available in the `binaries/` folder.
+A pre-built firmware binary is included: `firmware-esp32-e32r35t.bin`
 
-1. Open [ESP Web Flasher](https://esp.huhn.me) in **Chrome**, **Edge**, or **Opera** (Firefox/Safari not supported)
+**Using esptool:**
+```bash
+esptool.py --port /dev/cu.usbserial-XXX write_flash 0x10000 firmware-esp32-e32r35t.bin
+```
+
+**Using ESP Web Flasher:**
+1. Open [ESP Web Flasher](https://esp.huhn.me) in **Chrome**, **Edge**, or **Opera**
 2. Click **Connect** and select your board's serial port
-3. Set address to: **0x0**
-4. Click **Choose File** and select `loki-cyd-e32r35t-FULL.bin`
+3. Set address to: **0x10000**
+4. Click **Choose File** and select `firmware-esp32-e32r35t.bin`
 5. Click **Program**
 6. Wait for completion, then power cycle the board
 
@@ -175,11 +184,13 @@ SD card root/
 └── loki/
     ├── themes/
     │   ├── loki/        ← 302 animation frames + bg + config
+    │   ├── loki_dark/
     │   ├── bjorn/
     │   ├── clown/
+    │   ├── clown_dark/
     │   ├── knight/
-    │   ├── loki_dark/
-    │   └── pirate/
+    │   ├── pirate/
+    │   └── pirate_dark/
     ├── loot/             ← Stolen files (auto-created)
     ├── reports/          ← Scan reports (auto-created)
     └── creds.txt         ← Custom wordlist (optional)
@@ -221,9 +232,9 @@ cisco:cisco
 | OS Detection | ✅ (nmap) | ❌ | 📋 Planned |
 | Hostname Resolution | ✅ (DNS/NetBIOS/mDNS) | ❌ | 📋 Planned |
 | Virtual Pet UI | ✅ | ✅ | ✅ Complete |
-| Theme System | ✅ (6 themes) | ✅ (6 themes) | 🚧 In Progress |
-| Theme Colors | ✅ | ✅ | 🚧 In Progress |
-| Theme Layout Override | ✅ | ✅ | 🚧 In Progress |
+| Theme System | ✅ (6 themes) | ✅ (8 themes) | ✅ Complete |
+| Theme Colors | ✅ | ✅ (per-element) | ✅ Complete |
+| Theme Layout Override | ✅ | ✅ (per-element) | ✅ Complete |
 | Character Animations | ✅ (all frames) | ✅ (all frames) | ✅ Complete |
 | Sequential/Random Anim | ✅ | ✅ | ✅ Complete |
 | Commentary System | ✅ | ✅ | ✅ Complete |
@@ -248,7 +259,7 @@ cisco:cisco
 
 - **Dual-core**: Core 0 = recon engine, Core 1 = UI + touch + web server
 - **Thread-safe**: Dirty flag system prevents SPI bus conflicts between cores
-- **Flash**: ~72% used (with PROGMEM fallback theme)
+- **Flash**: ~73% used (with PROGMEM fallback theme)
 - **RAM**: ~25% used
 - See [ARCHITECTURE.md](ARCHITECTURE.md) for full technical documentation
 
