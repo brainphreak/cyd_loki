@@ -492,14 +492,15 @@ static void drawMenuItems(const char** labels, int count, const char* title) {
 
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(LOKI_GREEN);
+    tft.setTextFont(2);
     tft.setTextSize(2);
-    tft.drawString(title, SCREEN_WIDTH / 2, 20);
+    tft.drawString(title, SCREEN_WIDTH / 2, 22);
 
     tft.setTextFont(2);
-    tft.setTextSize(1);
-    int startY = 45;
+    tft.setTextSize(2);
+    int startY = 50;
     int itemH = (SCREEN_HEIGHT - startY - 10) / count;
-    if (itemH > 55) itemH = 55;
+    if (itemH > 60) itemH = 60;
 
     for (int i = 0; i < count; i++) {
         int y = startY + i * itemH;
@@ -545,6 +546,7 @@ static void drawMenuItems(const char** labels, int count, const char* title) {
 
 void drawMenu() {
     inSettingsMenu = false;
+    LokiPet::invalidateBackground();  // Menu overwrites bg, force redraw on return
     drawMenuItems(menuLabels, MENU_ITEMS, "LOKI MENU");
 }
 
@@ -555,9 +557,9 @@ void drawSettingsMenu() {
 
 void handleMenuTouch(int x, int y) {
     int count = inSettingsMenu ? SETTINGS_ITEMS : MENU_ITEMS;
-    int startY = 45;
+    int startY = 50;
     int itemH = (SCREEN_HEIGHT - startY - 10) / count;
-    if (itemH > 55) itemH = 55;
+    if (itemH > 60) itemH = 60;
     int selected = (y - startY) / itemH;
 
     if (selected < 0 || selected >= count) return;
@@ -573,13 +575,17 @@ void handleMenuTouch(int x, int y) {
                     LokiPet::setStatus("Idle");
                 } else if (WiFi.isConnected()) {
                     autonomousMode = true;
-                    LokiRecon::start();
                     LokiPet::setStatus("Auto started");
                 } else {
                     LokiPet::setStatus("Connect WiFi first");
                 }
+                // Draw pet screen BEFORE starting recon to avoid SD bus conflict
                 currentScreen = SCREEN_PET;
                 LokiPet::drawPetScreen();
+                // Now safe to start recon (bg.bmp already read from SD)
+                if (autonomousMode && !LokiRecon::isRunning()) {
+                    LokiRecon::start();
+                }
                 break;
 
             case 1: // Manual
@@ -736,6 +742,7 @@ void drawWifiInfo() {
         delay(50);
     }
 
+    LokiPet::invalidateBackground();
     LokiPet::drawPetScreen();
 }
 
@@ -747,20 +754,21 @@ void drawThemePicker() {
     tft.fillScreen(LOKI_BG_DARK);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(LOKI_GREEN);
+    tft.setTextFont(2);
     tft.setTextSize(2);
-    tft.drawString("SELECT THEME", SCREEN_WIDTH / 2, 18);
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextSize(1);
+    tft.drawString("SELECT THEME", SCREEN_WIDTH / 2, 22);
+
+    tft.setTextFont(2);
+    tft.setTextSize(2);
 
     int count = LokiSprites::getThemeCount();
-    int startY = 45;
-    int itemH = 35;
+    int startY = 50;
+    int itemH = 45;
 
     for (int i = 0; i < count && i < 10; i++) {
         int y = startY + i * itemH;
         bool isCurrent = (i == currentThemeIdx);
 
-        // Highlight current theme
         if (isCurrent) {
             tft.fillRoundRect(10, y, SCREEN_WIDTH - 20, itemH - 4, 4, LOKI_BG_ELEVATED);
             tft.drawRoundRect(10, y, SCREEN_WIDTH - 20, itemH - 4, 4, LOKI_GREEN);
@@ -775,32 +783,39 @@ void drawThemePicker() {
     }
 
     // Back button
-    int btnY = SCREEN_HEIGHT - 30;
-    tft.fillRoundRect(SCREEN_WIDTH / 2 - 40, btnY, 80, 24, 3, LOKI_BG_SURFACE);
-    tft.drawRoundRect(SCREEN_WIDTH / 2 - 40, btnY, 80, 24, 3, LOKI_RED);
+    int btnY = SCREEN_HEIGHT - 35;
+    tft.fillRoundRect(SCREEN_WIDTH / 2 - 50, btnY, 100, 28, 3, LOKI_BG_SURFACE);
+    tft.drawRoundRect(SCREEN_WIDTH / 2 - 50, btnY, 100, 28, 3, LOKI_RED);
     tft.setTextColor(LOKI_RED);
-    tft.drawString("Back", SCREEN_WIDTH / 2, btnY + 12);
+    tft.drawString("Back", SCREEN_WIDTH / 2, btnY + 14);
+    tft.setTextFont(1);
     tft.setTextDatum(TL_DATUM);
 }
 
 void handleThemePickerTouch(int x, int y) {
     // Back button
-    if (y >= SCREEN_HEIGHT - 30) {
+    if (y >= SCREEN_HEIGHT - 35) {
         currentScreen = SCREEN_MENU;
         drawMenu();
         return;
     }
 
     // Theme selection
-    int startY = 45;
-    int itemH = 35;
+    int startY = 50;
+    int itemH = 45;
     int count = LokiSprites::getThemeCount();
     int idx = (y - startY) / itemH;
 
     if (idx >= 0 && idx < count) {
         currentThemeIdx = idx;
+        const char* themeName = LokiSprites::getThemeName(idx);
         Serial.printf("[THEME] Selected: %s\n", LokiSprites::getThemeDisplayName(idx));
-        LokiSprites::loadTheme(LokiSprites::getThemeName(idx));
+        LokiSprites::loadTheme(themeName);
+        // Save to NVS so it persists across reboots
+        Preferences p;
+        p.begin("loki", false);
+        p.putString("theme", themeName);
+        p.end();
         LokiPet::setup(false);
         currentScreen = SCREEN_PET;
         LokiPet::drawPetScreen();

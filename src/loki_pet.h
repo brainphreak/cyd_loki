@@ -35,6 +35,9 @@ void setComment(const char* text);
 // Draw the full pet screen
 void drawPetScreen();
 
+// Force bg.bmp redraw on next drawPetScreen (call after menu/overlay/theme switch)
+void invalidateBackground();
+
 // Get current mood
 LokiMood getMood();
 
@@ -46,6 +49,16 @@ bool getShowStatusIcon();
 int getKillFeedCount();
 void getKillFeedLine(int idx, char* buf, int bufLen, uint16_t* color);
 void clearKillFeed();
+
+// Theme-aware kill feed colors (recon uses these instead of hardcoded constants)
+uint16_t kfInfo();      // Info/status messages
+uint16_t kfFound();     // Host/port discovered
+uint16_t kfSuccess();   // Successful operations
+uint16_t kfCracked();   // Credentials cracked
+uint16_t kfDim();       // Blocked/locked/failed
+uint16_t kfAttack();    // Attack start
+uint16_t kfError();     // Errors
+uint16_t kfXp();        // XP gains
 
 }  // namespace LokiPet
 

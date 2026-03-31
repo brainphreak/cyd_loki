@@ -12,6 +12,7 @@
 #include "asset_sprite_steal1.h"
 #include "asset_sprite_vuln1.h"
 
+// Status icons are in loki_status_icons.h (asset_sicon_*.h)
 
 // Sprite frame lookup table
 struct SpriteFrameSet {

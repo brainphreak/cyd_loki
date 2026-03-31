@@ -15,6 +15,7 @@
 #include "asset_bg.h"     // Background data for composite transparency
 #include <SD.h>
 #include <SPI.h>
+#include <Preferences.h>
 
 extern TFT_eSPI tft;
 
@@ -157,7 +158,7 @@ static bool drawSDBmpOpaque(const char* path, int x, int y) {
     return true;
 }
 
-static bool drawSDBmpTransparent(const char* path, int x, int y) {
+static bool drawSDBmpTransparent(const char* path, int x, int y, uint16_t compositeColor) {
     if (!mountSD()) return false;
     File file = SD.open(path);
     if (!file) { unmountSD(); return false; }
@@ -171,23 +172,19 @@ static bool drawSDBmpTransparent(const char* path, int x, int y) {
     int rowSize = ((width * 2 + 3) / 4) * 4;
     uint8_t rowBuf[rowSize];
 
-    // Fast composite: replace transparent pixels with PROGMEM background,
-    // then push entire row at once. No flash, no pixel-by-pixel drawing.
-    // bg_data from asset_bg.h (PROGMEM background for composite)
-
     tft.startWrite();
     for (int row = 0; row < height; row++) {
         file.read(rowBuf, rowSize);
         uint16_t* pixels = (uint16_t*)rowBuf;
 
-        // Replace magenta pixels with background
-        // Use theme's bg color when SD theme is active (handles white themes)
-        // Fall back to PROGMEM background data
+        // Replace magenta transparent pixels with the specified background color
+        // For SD themes: compositeColor is colorBg (character) or colorSurface (status icon)
+        // For PROGMEM fallback: pixel-perfect from bg_data
         int bgY = y + row;
         for (int col = 0; col < width; col++) {
             if (pixels[col] == TRANSPARENT_COLOR) {
                 if (usingSDTheme) {
-                    pixels[col] = themeConfig.colorBg;
+                    pixels[col] = compositeColor;
                 } else {
                     int bgX = x + col;
                     if (bgX < BG_W && bgY < BG_H) {
@@ -199,7 +196,6 @@ static bool drawSDBmpTransparent(const char* path, int x, int y) {
             }
         }
 
-        // Push entire composited row at once (fast!)
         tft.setAddrWindow(x, y + row, width, 1);
         tft.pushColors(pixels, width);
     }
@@ -293,6 +289,70 @@ static void parseThemeConfig(const char* path) {
         else PARSE_INT("killfeed_y", kfY)
         else PARSE_INT("killfeed_lines", kfLines)
         else PARSE_INT("killfeed_line_h", kfLineH)
+
+        // Per-element: XP value
+        else if (key == "xp_val_x")     themeConfig.xpVal.x = val.toInt();
+        else if (key == "xp_val_y")     themeConfig.xpVal.y = val.toInt();
+        else if (key == "xp_val_font")  themeConfig.xpVal.font = val.toInt();
+        else if (key == "xp_val_color") themeConfig.xpVal.color = (uint16_t)strtol(val.c_str(), NULL, 16);
+        else if (key == "xp_val_datum") themeConfig.xpVal.datum = val.toInt();
+
+        // Per-element: WiFi text
+        else if (key == "wifi_text_x")     themeConfig.wifiText.x = val.toInt();
+        else if (key == "wifi_text_y")     themeConfig.wifiText.y = val.toInt();
+        else if (key == "wifi_text_font")  themeConfig.wifiText.font = val.toInt();
+        else if (key == "wifi_text_datum") themeConfig.wifiText.datum = val.toInt();
+        else PARSE_COLOR("wifi_color_on", wifiColorOn)
+        else PARSE_COLOR("wifi_color_off", wifiColorOff)
+
+        // Per-element: Status line 1 (action name)
+        else if (key == "status_line1_x")     themeConfig.statusLine1.x = val.toInt();
+        else if (key == "status_line1_y")     themeConfig.statusLine1.y = val.toInt();
+        else if (key == "status_line1_font")  themeConfig.statusLine1.font = val.toInt();
+        else if (key == "status_line1_color") themeConfig.statusLine1.color = (uint16_t)strtol(val.c_str(), NULL, 16);
+        else if (key == "status_line1_datum") themeConfig.statusLine1.datum = val.toInt();
+
+        // Per-element: Status line 2 (detail text)
+        else if (key == "status_line2_x")     themeConfig.statusLine2.x = val.toInt();
+        else if (key == "status_line2_y")     themeConfig.statusLine2.y = val.toInt();
+        else if (key == "status_line2_font")  themeConfig.statusLine2.font = val.toInt();
+        else if (key == "status_line2_color") themeConfig.statusLine2.color = (uint16_t)strtol(val.c_str(), NULL, 16);
+        else if (key == "status_line2_datum") themeConfig.statusLine2.datum = val.toInt();
+
+        // Per-element: Status icon
+        else if (key == "status_icon_y")    themeConfig.statusIconY = val.toInt();
+        else if (key == "status_icon_size") themeConfig.statusIconSize = val.toInt();
+
+        // Per-element: Comment/dialogue text
+        else if (key == "comment_text_x")     themeConfig.commentText.x = val.toInt();
+        else if (key == "comment_text_y")     themeConfig.commentText.y = val.toInt();
+        else if (key == "comment_text_font")  themeConfig.commentText.font = val.toInt();
+        else if (key == "comment_text_color") themeConfig.commentText.color = (uint16_t)strtol(val.c_str(), NULL, 16);
+
+        // Per-element: Kill feed colors
+        else PARSE_COLOR("kf_color_info", kfColorInfo)
+        else PARSE_COLOR("kf_color_found", kfColorFound)
+        else PARSE_COLOR("kf_color_success", kfColorSuccess)
+        else PARSE_COLOR("kf_color_cracked", kfColorCracked)
+        else PARSE_COLOR("kf_color_dim", kfColorDim)
+        else PARSE_COLOR("kf_color_attack", kfColorAttack)
+        else PARSE_COLOR("kf_color_error", kfColorError)
+        else PARSE_COLOR("kf_color_xp", kfColorXp)
+        else if (key == "kf_font") themeConfig.kfFont = val.toInt();
+        else PARSE_COLOR("kf_bg_color", kfBgColor)
+
+        // Per-stat styles (stat0..stat8)
+        else if (key.startsWith("stat") && key.length() > 4 && isdigit(key.charAt(4))) {
+            int idx = key.charAt(4) - '0';
+            if (idx >= 0 && idx < 9) {
+                String suffix = key.substring(5);  // e.g. "_x", "_y", "_font", "_color", "_datum"
+                if (suffix == "_x")     themeConfig.stat[idx].x = val.toInt();
+                else if (suffix == "_y")     themeConfig.stat[idx].y = val.toInt();
+                else if (suffix == "_font")  themeConfig.stat[idx].font = val.toInt();
+                else if (suffix == "_color") themeConfig.stat[idx].color = (uint16_t)strtol(val.c_str(), NULL, 16);
+                else if (suffix == "_datum") themeConfig.stat[idx].datum = val.toInt();
+            }
+        }
         ;
 
         #undef PARSE_COLOR
@@ -317,20 +377,20 @@ void setup() {
     themeConfig.commentIntervalMin = PET_COMMENT_MIN_MS;
     themeConfig.commentIntervalMax = PET_COMMENT_MAX_MS;
 
-    // Color defaults (Loki green theme)
-    themeConfig.colorBg          = 0x0861;  // Dark green-black
-    themeConfig.colorSurface     = 0x0A43;
-    themeConfig.colorElevated    = 0x1264;
-    themeConfig.colorText        = 0xD6B4;  // Light green-white
-    themeConfig.colorTextDim     = 0x4CC9;
-    themeConfig.colorAccent      = 0x3DE9;  // Green
-    themeConfig.colorAccentBright= 0x7EF6;
-    themeConfig.colorAccentDim   = 0x3464;
-    themeConfig.colorHighlight   = 0xFE60;  // Gold
-    themeConfig.colorAlert       = 0xF81F;  // Magenta
-    themeConfig.colorError       = 0xF800;  // Red
-    themeConfig.colorSuccess     = 0x07E0;  // Green
-    themeConfig.colorCracked     = 0xFB56;  // Hot pink
+    // Color defaults (matches PROGMEM loki_dark bg.bmp)
+    themeConfig.colorBg          = 0x0000;  // Pure black
+    themeConfig.colorSurface     = 0x0841;
+    themeConfig.colorElevated    = 0x10A2;
+    themeConfig.colorText        = 0x0647;  // Green text
+    themeConfig.colorTextDim     = 0x0283;
+    themeConfig.colorAccent      = 0x0465;  // Dark green
+    themeConfig.colorAccentBright= 0x2DAA;
+    themeConfig.colorAccentDim   = 0x0320;
+    themeConfig.colorHighlight   = 0xCDA6;  // Gold
+    themeConfig.colorAlert       = 0xCA99;
+    themeConfig.colorError       = 0xC986;  // Red
+    themeConfig.colorSuccess     = 0x0465;  // Green
+    themeConfig.colorCracked     = 0xFB36;  // Hot pink
 
     // Layout defaults (320x480)
     themeConfig.headerY = 0;
@@ -345,11 +405,6 @@ void setup() {
     themeConfig.statsCols = 3;
     themeConfig.statsIconSize = min((int)(18 * SCREEN_WIDTH / 222.0f), 22);
     themeConfig.statsRowH = themeConfig.statsIconSize + 8;
-
-    int statsBottom = themeConfig.statsY + themeConfig.statsRowH * themeConfig.statsRows;
-    // These values must match what make_background.py produces
-    int friseY = statsBottom + 2;
-    int friseH = 10;
 
     themeConfig.statusY = 125;
     themeConfig.statusH = 45;
@@ -369,6 +424,34 @@ void setup() {
     themeConfig.kfY = 416;
     themeConfig.kfLines = 6;
     themeConfig.kfLineH = 10;
+
+    // Per-element defaults: -1 means "use computed default"
+    for (int i = 0; i < 9; i++) {
+        themeConfig.stat[i] = {-1, -1, 2, 1, themeConfig.colorText, 3}; // ML_DATUM
+    }
+    themeConfig.xpVal = {-1, -1, 2, 1, themeConfig.colorHighlight, 3};  // ML_DATUM
+    themeConfig.wifiText = {-1, -1, 2, 1, 0, 5};                       // MR_DATUM
+    themeConfig.wifiColorOn = themeConfig.colorSuccess;
+    themeConfig.wifiColorOff = themeConfig.colorTextDim;
+
+    themeConfig.statusLine1 = {-1, -1, 2, 1, themeConfig.colorAccent, 0};  // TL_DATUM
+    themeConfig.statusLine2 = {-1, -1, 2, 1, themeConfig.colorText, 0};    // TL_DATUM
+    themeConfig.statusIconY = -1;
+    themeConfig.statusIconSize = 42;
+
+    themeConfig.commentText = {-1, -1, 2, 1, themeConfig.colorText, 0};
+
+    // Kill feed colors — default to loki palette
+    themeConfig.kfColorInfo    = 0x07FF;  // LOKI_CYAN
+    themeConfig.kfColorFound   = 0x7EF6;  // LOKI_BRIGHT
+    themeConfig.kfColorSuccess = 0x3DE9;  // LOKI_GREEN
+    themeConfig.kfColorCracked = 0xFB56;  // LOKI_HOTPINK
+    themeConfig.kfColorDim     = 0x4CC9;  // LOKI_TEXT_DIM
+    themeConfig.kfColorAttack  = 0xF81F;  // LOKI_MAGENTA
+    themeConfig.kfColorError   = 0xF800;  // LOKI_RED
+    themeConfig.kfColorXp      = 0xFE60;  // LOKI_GOLD
+    themeConfig.kfFont         = 1;
+    themeConfig.kfBgColor      = 0x0000;  // Black
 
     Serial.printf("[THEME] Built-in fallback: bg + %d states\n", SPRITE_STATE_COUNT);
 
@@ -432,28 +515,50 @@ void setup() {
         themesDir.close();
     }
 
+    // Sort themes alphabetically by display name
+    for (int i = 0; i < themeCount - 1; i++) {
+        for (int j = i + 1; j < themeCount; j++) {
+            if (strcasecmp(themeDisplayNames[i], themeDisplayNames[j]) > 0) {
+                char tmp[24];
+                strncpy(tmp, themeNames[i], 23); strncpy(themeNames[i], themeNames[j], 23); strncpy(themeNames[j], tmp, 23);
+                strncpy(tmp, themeDisplayNames[i], 23); strncpy(themeDisplayNames[i], themeDisplayNames[j], 23); strncpy(themeDisplayNames[j], tmp, 23);
+            }
+        }
+    }
+
     Serial.printf("[THEME] %d SD themes available\n", themeCount);
 
-    // Auto-load "loki" theme from SD if it exists (upgrades built-in)
+    // Load saved theme from NVS, default to "loki_dark"
+    Preferences p;
+    p.begin("loki", true);
+    String savedTheme = p.getString("theme", "loki_dark");
+    p.end();
+
     bool loaded = false;
+    unmountSD();
+
+    // Try saved theme first
     for (int i = 0; i < themeCount; i++) {
-        if (strcmp(themeNames[i], "loki") == 0) {
-            unmountSD();
-            loaded = loadTheme("loki");
+        if (strcmp(themeNames[i], savedTheme.c_str()) == 0) {
+            loaded = loadTheme(savedTheme.c_str());
             break;
         }
     }
 
+    // Fall back to loki_dark, then first available
     if (!loaded) {
-        // No loki theme on SD — try first available
-        if (themeCount > 0) {
-            unmountSD();
-            loadTheme(themeNames[0]);
-        } else {
-            usingSDTheme = false;
-            Serial.println("[THEME] No SD themes — using built-in");
-            unmountSD();
+        for (int i = 0; i < themeCount; i++) {
+            if (strcmp(themeNames[i], "loki_dark") == 0) {
+                loaded = loadTheme("loki_dark");
+                break;
+            }
         }
+    }
+    if (!loaded && themeCount > 0) {
+        loadTheme(themeNames[0]);
+    } else if (!loaded) {
+        usingSDTheme = false;
+        Serial.println("[THEME] No SD themes — using built-in");
     }
 }
 
@@ -615,13 +720,13 @@ bool drawCharacterFrame(const char* state, int frame, int x, int y) {
 
         char framePath[120];
         if (findNthFrame(stateDir, frame, framePath, sizeof(framePath))) {
-            if (drawSDBmpTransparent(framePath, x, y)) return true;
+            if (drawSDBmpTransparent(framePath, x, y, themeConfig.colorBg)) return true;
         }
 
         // Fallback: try old flat format (state1.bmp, state2.bmp)
         char flatPath[80];
         snprintf(flatPath, sizeof(flatPath), "%s%s%d.bmp", currentThemePath, state, frame);
-        if (drawSDBmpTransparent(flatPath, x, y)) return true;
+        if (drawSDBmpTransparent(flatPath, x, y, themeConfig.colorBg)) return true;
     }
 
     // Built-in PROGMEM fallback (1 still frame per state)
@@ -650,9 +755,10 @@ bool drawStatusIcon(const char* state, int x, int y) {
     if (!usingSDTheme) return false;
 
     // Look for the 42x42 status icon: <state>/<state>_icon.bmp
+    // Composite against surface color since icons sit on the status bar
     char iconPath[100];
     snprintf(iconPath, sizeof(iconPath), "%s%s/%s_icon.bmp", currentThemePath, state, state);
-    return drawSDBmpTransparent(iconPath, x, y);
+    return drawSDBmpTransparent(iconPath, x, y, themeConfig.colorSurface);
 }
 
 // =============================================================================

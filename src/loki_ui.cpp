@@ -66,6 +66,7 @@ void setup() {
 // =============================================================================
 
 void drawWifiScan() {
+    wifiSelected = false;  // Reset selection state on entry
     tft.fillScreen(LOKI_BG_DARK);
 
     // Title
@@ -81,10 +82,8 @@ void drawWifiScan() {
     tft.setCursor(5, 38);
     tft.print("Scanning...");
 
+    // Scan without disconnecting — ESP32 can scan while connected
     WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    delay(100);
-
     int n = WiFi.scanNetworks(false, false);
     networkCount = 0;
     for (int i = 0; i < n && networkCount < MAX_NETWORKS; i++) {
@@ -297,8 +296,10 @@ void drawKeyboard(const char* prompt, int maxLen) {
         int eyeY2 = 22;  // Same Y as input box
         tft.fillRoundRect(eyeX, eyeY2, 45, 20, 3, LOKI_BG_SURFACE);
         tft.drawRoundRect(eyeX, eyeY2, 45, 20, 3, LOKI_TEXT_DIM);
+        tft.setTextDatum(MC_DATUM);
         tft.setTextColor(LOKI_TEXT_DIM);
         tft.drawString(showPassword ? "Hide" : "Show", eyeX + 22, eyeY2 + 10);
+        tft.setTextDatum(TL_DATUM);
     }
 
     // Help text

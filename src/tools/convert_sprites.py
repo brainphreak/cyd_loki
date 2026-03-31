@@ -33,8 +33,29 @@ def png_to_rgb565_bmp(input_path, output_path, size, bg_color=(255, 0, 255), ble
     """
     img = Image.open(input_path).convert("RGBA")
 
-    # Resize maintaining aspect ratio
-    img.thumbnail((size, size), Image.LANCZOS)
+    # Auto-detect background for images without alpha transparency:
+    # If the corner pixels are opaque and the same color, treat that color as transparent
+    px = img.load()
+    corners = [px[0,0], px[img.width-1,0], px[0,img.height-1], px[img.width-1,img.height-1]]
+    all_opaque = all(c[3] == 255 for c in corners)
+    if all_opaque:
+        # Check if corners share the same RGB (likely background color)
+        corner_rgb = corners[0][:3]
+        if all(c[:3] == corner_rgb for c in corners):
+            # Replace this background color with full transparency
+            data = img.load()
+            for y in range(img.height):
+                for x in range(img.width):
+                    r, g, b, a = data[x, y]
+                    if (r, g, b) == corner_rgb:
+                        data[x, y] = (r, g, b, 0)
+
+    # Resize to fill target size, maintaining aspect ratio
+    # thumbnail() won't upscale, so use resize() for small sources
+    scale = min(size / img.width, size / img.height)
+    new_w = int(img.width * scale)
+    new_h = int(img.height * scale)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
 
     # Edge blending color — matches the theme's actual background
     dark_bg = blend_bg if blend_bg else (10, 18, 10)
