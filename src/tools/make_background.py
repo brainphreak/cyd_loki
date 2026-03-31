@@ -66,15 +66,22 @@ def make_background(theme_dir, output_dir, screen_w=320, screen_h=480):
     images_dir = os.path.join(theme_dir, 'images')
     os.makedirs(os.path.join(output_dir, 'loki'), exist_ok=True)
 
-    # Colors from theme
-    bg_color = rgb_to_tuple(theme.get('menu_colors', {}).get('bg', [10, 18, 10]))
-    title_color = rgb_to_tuple(theme.get('menu_colors', {}).get('title', [100, 190, 90]))
+    # Colors from theme — use bg_color for main background (not menu_colors.bg)
+    bg_color = rgb_to_tuple(theme.get('bg_color', theme.get('menu_colors', {}).get('bg', [10, 18, 10])))
+    title_color = rgb_to_tuple(theme.get('title_font_color', theme.get('menu_colors', {}).get('title', [100, 190, 90])))
     text_color = rgb_to_tuple(theme.get('text_color', [0, 0, 0]))
     accent_color = rgb_to_tuple(theme.get('accent_color', [0, 0, 0]))
     dim_color = rgb_to_tuple(theme.get('menu_colors', {}).get('dim', [70, 85, 70]))
-    surface_color = tuple(min(c + 10, 255) for c in bg_color)
-    elevated_color = tuple(min(c + 20, 255) for c in bg_color)
-    border_color = tuple(min(c + 40, 255) for c in bg_color)
+
+    is_light = sum(bg_color) > 384
+    if is_light:
+        surface_color = tuple(max(c - 15, 0) for c in bg_color)
+        elevated_color = tuple(max(c - 25, 0) for c in bg_color)
+        border_color = tuple(max(c - 60, 0) for c in bg_color)
+    else:
+        surface_color = tuple(min(c + 10, 255) for c in bg_color)
+        elevated_color = tuple(min(c + 20, 255) for c in bg_color)
+        border_color = tuple(min(c + 40, 255) for c in bg_color)
 
     # ─── Layout coordinates (portrait, scaled to screen) ───
     # These proportions are based on the original Loki 222x480 layout

@@ -180,14 +180,20 @@ static bool drawSDBmpTransparent(const char* path, int x, int y) {
         uint16_t* pixels = (uint16_t*)rowBuf;
 
         // Replace magenta pixels with background
+        // Use theme's bg color when SD theme is active (handles white themes)
+        // Fall back to PROGMEM background data
         int bgY = y + row;
         for (int col = 0; col < width; col++) {
             if (pixels[col] == TRANSPARENT_COLOR) {
-                int bgX = x + col;
-                if (bgX < BG_W && bgY < BG_H) {
-                    pixels[col] = pgm_read_word(&bg_data[bgY * BG_W + bgX]);
+                if (usingSDTheme) {
+                    pixels[col] = themeConfig.colorBg;
                 } else {
-                    pixels[col] = 0x0861;  // LOKI_BG_DARK fallback
+                    int bgX = x + col;
+                    if (bgX < BG_W && bgY < BG_H) {
+                        pixels[col] = pgm_read_word(&bg_data[bgY * BG_W + bgX]);
+                    } else {
+                        pixels[col] = 0x0861;
+                    }
                 }
             }
         }

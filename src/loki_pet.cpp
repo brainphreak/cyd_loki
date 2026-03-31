@@ -272,10 +272,12 @@ static void redrawBackground() {
 // =============================================================================
 
 static void restoreBackgroundStrip(int x, int y, int w, int h) {
-    // Restore background from PROGMEM (always available as fallback bg)
-    // This works for both built-in and SD themes since the bg is baked in PROGMEM
-    if (x >= 0 && y >= 0 && x + w <= BG_W && y + h <= BG_H && w <= BG_W) {
-        static uint16_t rowBuf[320];  // Static buffer — max screen width
+    if (useSprites && LokiSprites::sdAvailable()) {
+        // SD theme active — fill with theme bg color (handles white themes)
+        tft.fillRect(x, y, w, h, TC.colorBg);
+    } else if (x >= 0 && y >= 0 && x + w <= BG_W && y + h <= BG_H && w <= BG_W) {
+        // PROGMEM fallback — restore from built-in background data
+        static uint16_t rowBuf[320];
         tft.startWrite();
         for (int row = y; row < y + h; row++) {
             int len = min(w, 320);

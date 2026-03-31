@@ -24,7 +24,7 @@ def rgb888_to_rgb565(r, g, b):
     """Convert 24-bit RGB to 16-bit RGB565."""
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
-def png_to_rgb565_bmp(input_path, output_path, size, bg_color=(255, 0, 255)):
+def png_to_rgb565_bmp(input_path, output_path, size, bg_color=(255, 0, 255), blend_bg=None):
     """Convert a PNG with transparency to RGB565 BMP.
 
     Semi-transparent edge pixels are blended into a dark background (10,18,10)
@@ -36,8 +36,8 @@ def png_to_rgb565_bmp(input_path, output_path, size, bg_color=(255, 0, 255)):
     # Resize maintaining aspect ratio
     img.thumbnail((size, size), Image.LANCZOS)
 
-    # Dark background color matching the Loki theme bg
-    dark_bg = (10, 18, 10)
+    # Edge blending color — matches the theme's actual background
+    dark_bg = blend_bg if blend_bg else (10, 18, 10)
 
     # Create the output image at final size
     result = Image.new("RGB", (size, size), bg_color)

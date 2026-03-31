@@ -98,6 +98,8 @@ def main():
     # --- 3. Generate character sprites ---
     status_dir = os.path.join(theme_dir, 'images', 'status')
     bg_color = (255, 0, 255)  # Magenta transparency key
+    # Edge blending uses the theme's actual background color
+    theme_bg = tuple(theme_json.get('bg_color', [10, 18, 10]))
 
     # Map internal state names to original Loki folder names
     states = {
@@ -123,18 +125,19 @@ def main():
         os.makedirs(state_dir, exist_ok=True)
 
         # Convert status icon (file without number) at 42x42 for status bar
+        # Use auto-background removal: detect corner color and replace with magenta
         status_icon = os.path.join(src, f"{folder}.png")
         if not os.path.exists(status_icon):
             status_icon = os.path.join(src, f"{folder}.bmp")
         if os.path.exists(status_icon):
             icon_out = os.path.join(state_dir, f"{state_name}_icon.bmp")
-            png_to_rgb565_bmp(status_icon, icon_out, 42, bg_color)
+            png_to_rgb565_bmp(status_icon, icon_out, 42, bg_color, blend_bg=theme_bg)
 
         # Convert animation frames
         frames = select_frames(src, prefix, count)
         for i, frame_path in enumerate(frames):
             out_path = os.path.join(state_dir, f"{state_name}{i + 1}.bmp")
-            png_to_rgb565_bmp(frame_path, out_path, sprite_size, bg_color)
+            png_to_rgb565_bmp(frame_path, out_path, sprite_size, bg_color, blend_bg=theme_bg)
             total_sprites += 1
 
     # --- 4. Summary ---
