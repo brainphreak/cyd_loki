@@ -31,7 +31,8 @@ static char currentThemePath[48] = {0};
 static LokiThemeConfig themeConfig;
 
 #define MAX_THEMES 10
-static char themeNames[MAX_THEMES][24];
+static char themeNames[MAX_THEMES][24];       // Folder names (for path building)
+static char themeDisplayNames[MAX_THEMES][24]; // Display names (from theme.cfg)
 static int themeCount = 0;
 
 #define MAX_STATES 8
@@ -399,7 +400,31 @@ void setup() {
                 String shortName = (lastSlash >= 0) ? fullName.substring(lastSlash + 1) : fullName;
                 strncpy(themeNames[themeCount], shortName.c_str(), 23);
                 themeNames[themeCount][23] = '\0';
-                Serial.printf("[THEME] Found: %s\n", themeNames[themeCount]);
+
+                // Read display name from theme.cfg
+                char cfgPath[64];
+                snprintf(cfgPath, sizeof(cfgPath), "/loki/themes/%s/theme.cfg", themeNames[themeCount]);
+                strncpy(themeDisplayNames[themeCount], themeNames[themeCount], 23); // Default to folder name
+                File cfg = SD.open(cfgPath, FILE_READ);
+                if (cfg) {
+                    while (cfg.available()) {
+                        String line = cfg.readStringUntil('\n');
+                        line.trim();
+                        if (line.startsWith("name")) {
+                            int eq = line.indexOf('=');
+                            if (eq > 0) {
+                                String val = line.substring(eq + 1);
+                                val.trim();
+                                strncpy(themeDisplayNames[themeCount], val.c_str(), 23);
+                                themeDisplayNames[themeCount][23] = '\0';
+                                break;
+                            }
+                        }
+                    }
+                    cfg.close();
+                }
+
+                Serial.printf("[THEME] Found: %s (%s)\n", themeNames[themeCount], themeDisplayNames[themeCount]);
                 themeCount++;
             }
             entry = themesDir.openNextFile();
@@ -516,6 +541,10 @@ int getThemeCount() { return themeCount; }
 const char* getThemeName(int index) {
     if (index < 0 || index >= themeCount) return "";
     return themeNames[index];
+}
+const char* getThemeDisplayName(int index) {
+    if (index < 0 || index >= themeCount) return "";
+    return themeDisplayNames[index];
 }
 bool sdAvailable() { return sdReady; }
 bool themeLoaded() { return true; }  // Always true — we have built-in fallback

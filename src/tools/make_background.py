@@ -203,18 +203,30 @@ def make_background(theme_dir, output_dir, screen_w=320, screen_h=480):
         ix = s['x'] + col * col_w + 4
         iy = s['y'] + row * row_h + (row_h - icon_size) // 2
 
-        # Try .png then .bmp, then fallback to loki's icons
+        # For dark themes, prefer _dark variant of icons
         icon_path = None
-        for ext in ['.png', '.bmp']:
-            p = os.path.join(images_dir, f'{icon_name}{ext}')
-            if os.path.exists(p):
-                icon_path = p
-                break
-        if not icon_path and os.path.exists(fallback_images_dir):
+        if is_light:
+            search_names = [icon_name]
+        else:
+            search_names = [f'{icon_name}_dark', f'{icon_name}-dark', icon_name]
+
+        for name_variant in search_names:
             for ext in ['.png', '.bmp']:
-                p = os.path.join(fallback_images_dir, f'{icon_name}{ext}')
+                p = os.path.join(images_dir, f'{name_variant}{ext}')
                 if os.path.exists(p):
                     icon_path = p
+                    break
+            if icon_path:
+                break
+
+        if not icon_path and os.path.exists(fallback_images_dir):
+            for name_variant in search_names:
+                for ext in ['.png', '.bmp']:
+                    p = os.path.join(fallback_images_dir, f'{name_variant}{ext}')
+                    if os.path.exists(p):
+                        icon_path = p
+                        break
+                if icon_path:
                     break
 
         if icon_path:

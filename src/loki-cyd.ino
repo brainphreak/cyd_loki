@@ -771,7 +771,7 @@ void drawThemePicker() {
 
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(isCurrent ? LOKI_GREEN : LOKI_TEXT);
-        tft.drawString(LokiSprites::getThemeName(i), SCREEN_WIDTH / 2, y + itemH / 2 - 2);
+        tft.drawString(LokiSprites::getThemeDisplayName(i), SCREEN_WIDTH / 2, y + itemH / 2 - 2);
     }
 
     // Back button
@@ -799,7 +799,7 @@ void handleThemePickerTouch(int x, int y) {
 
     if (idx >= 0 && idx < count) {
         currentThemeIdx = idx;
-        Serial.printf("[THEME] Selected: %s\n", LokiSprites::getThemeName(idx));
+        Serial.printf("[THEME] Selected: %s\n", LokiSprites::getThemeDisplayName(idx));
         LokiSprites::loadTheme(LokiSprites::getThemeName(idx));
         LokiPet::setup(false);
         currentScreen = SCREEN_PET;

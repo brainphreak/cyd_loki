@@ -76,7 +76,8 @@ LokiThemeConfig& getThemeConfig();
 
 // Get list of available theme names
 int getThemeCount();
-const char* getThemeName(int index);
+const char* getThemeName(int index);          // Folder name (for loading)
+const char* getThemeDisplayName(int index);   // Display name (from cfg)
 
 // Draw the full-screen background from SD card
 bool drawBackground();
