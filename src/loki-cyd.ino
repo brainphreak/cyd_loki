@@ -192,6 +192,20 @@ void setup() {
       loadTouchCalibration();
       if (!touchCalibrated) {
           runTouchCalibration();
+      } else {
+          // Hold screen during boot to force recalibration
+          tft.setTextDatum(MC_DATUM);
+          tft.setTextColor(LOKI_TEXT_DIM);
+          tft.drawString("Touch & hold to recalibrate...", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+          tft.setTextDatum(TL_DATUM);
+          delay(1500);
+          uint16_t tx, ty;
+          if (tft.getTouch(&tx, &ty)) {
+              Serial.println("[TOUCH] Boot recalibration triggered");
+              clearTouchCalibration();
+              runTouchCalibration();
+          }
+          tft.fillScreen(LOKI_BG_DARK);
       }
     #endif
 
