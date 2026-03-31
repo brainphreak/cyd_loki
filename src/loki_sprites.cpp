@@ -655,6 +655,71 @@ bool drawStatusIcon(const char* state, int x, int y) {
 }
 
 // =============================================================================
+// THEME COMMENTS
+// =============================================================================
+
+bool getRandomComment(const char* state, char* buf, int bufLen) {
+    if (!usingSDTheme) return false;
+    if (!mountSD()) return false;
+
+    char path[80];
+    snprintf(path, sizeof(path), "%scomments.txt", currentThemePath);
+
+    File f = SD.open(path, FILE_READ);
+    if (!f) { unmountSD(); return false; }
+
+    // Find the [state] section and count lines
+    char section[16];
+    snprintf(section, sizeof(section), "[%s]", state);
+    bool inSection = false;
+    int lineCount = 0;
+
+    // First pass: count lines in this section
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        line.trim();
+        if (line.startsWith("[")) {
+            inSection = (line == section);
+            continue;
+        }
+        if (inSection && line.length() > 0) lineCount++;
+    }
+
+    if (lineCount == 0) {
+        f.close(); unmountSD();
+        return false;
+    }
+
+    // Pick a random line
+    int target = random(0, lineCount);
+
+    // Second pass: find that line
+    f.seek(0);
+    inSection = false;
+    int current = 0;
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        line.trim();
+        if (line.startsWith("[")) {
+            inSection = (line == section);
+            continue;
+        }
+        if (inSection && line.length() > 0) {
+            if (current == target) {
+                strncpy(buf, line.c_str(), bufLen - 1);
+                buf[bufLen - 1] = '\0';
+                f.close(); unmountSD();
+                return true;
+            }
+            current++;
+        }
+    }
+
+    f.close(); unmountSD();
+    return false;
+}
+
+// =============================================================================
 // FRAME COUNT
 // =============================================================================
 

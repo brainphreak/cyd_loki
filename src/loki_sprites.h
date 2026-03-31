@@ -92,6 +92,9 @@ int getFrameCount(const char* state);
 // Draw status icon from SD theme (the numberless file in the state subfolder)
 bool drawStatusIcon(const char* state, int x, int y);
 
+// Get a random comment for the given state from theme's comments.txt
+bool getRandomComment(const char* state, char* buf, int bufLen);
+
 // Is SD card available?
 bool sdAvailable();
 

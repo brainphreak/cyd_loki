@@ -589,6 +589,15 @@ static void updateCommentary() {
     if (now - lastCommentTime < interval) return;
     lastCommentTime = now;
 
+    // Try theme-specific comments from SD first
+    const char* state = moodToState(currentMood);
+    char themeBuf[64];
+    if (LokiSprites::getRandomComment(state, themeBuf, sizeof(themeBuf))) {
+        setComment(themeBuf);
+        return;
+    }
+
+    // Fall back to hardcoded loki comments
     const char** comments;
     int count;
     switch (currentMood) {
