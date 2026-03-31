@@ -460,9 +460,18 @@ void setup() {
         sdReady = false;
         usingSDTheme = false;
         Serial.println("[THEME] No SD card — using built-in theme");
+        Serial.println("[THEME] To use themes, copy the loki/ folder to your SD card root");
         return;
     }
     sdReady = true;
+    Serial.println("[THEME] SD card mounted OK");
+
+    // Check for common mis-copy: sdcard_contents/ folder copied instead of loki/
+    if (SD.exists("/sdcard_contents/loki/themes")) {
+        Serial.println("[THEME] WARNING: Found /sdcard_contents/loki/ — wrong path!");
+        Serial.println("[THEME] Copy the loki/ folder INSIDE sdcard_contents/ to SD root");
+        Serial.println("[THEME] Expected: SD:/loki/themes/  Got: SD:/sdcard_contents/loki/themes/");
+    }
 
     // Create directories
     if (!SD.exists("/loki")) SD.mkdir("/loki");
@@ -527,6 +536,13 @@ void setup() {
     }
 
     Serial.printf("[THEME] %d SD themes available\n", themeCount);
+    if (themeCount == 0) {
+        Serial.println("[THEME] No themes found at /loki/themes/");
+        Serial.println("[THEME] Make sure SD card has: /loki/themes/<name>/theme.cfg");
+        if (!SD.exists("/loki/themes")) {
+            Serial.println("[THEME] /loki/themes/ directory does not exist!");
+        }
+    }
 
     // Load saved theme from NVS, default to "loki_dark"
     Preferences p;

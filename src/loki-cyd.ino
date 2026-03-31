@@ -662,11 +662,11 @@ void handleMenuTouch(int x, int y) {
                 return;
 
             case 2: // Theme
-                if (LokiSprites::getThemeCount() == 0) LokiSprites::setup();
                 if (LokiSprites::getThemeCount() > 0) {
                     currentScreen = SCREEN_THEME_PICKER;
                     drawThemePicker();
                 } else {
+                    LokiPet::setStatus("No themes on SD");
                     drawSettingsMenu();
                 }
                 return;

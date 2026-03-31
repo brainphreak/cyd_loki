@@ -4,6 +4,8 @@ Copy the `loki/` folder (from this directory) to the **root** of a FAT32-formatt
 
 The result should be `SD:/loki/themes/`, `SD:/loki/oui.txt`, etc. Do NOT copy the `sdcard_contents/` folder itself — copy the `loki/` folder inside it.
 
+**The SD card must be FAT32.** exFAT and NTFS will not work. Cards over 32GB are often exFAT by default — reformat to FAT32 before use.
+
 ## Structure
 ```
 SD card root/
