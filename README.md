@@ -167,7 +167,7 @@ pio run -e esp32-e32r35t -t upload
 
 The SD card provides animated themes (6 included), loot storage, and custom wordlists. Without it, Loki CYD runs with a built-in still-image theme.
 
-**Quick setup:** Copy the `sdcard_contents/loki/` folder from this repo to the root of a FAT32-formatted MicroSD card.
+**Quick setup:** Copy the `loki/` folder from `sdcard_contents/` to the **root** of a FAT32-formatted MicroSD card so you have `SD:/loki/themes/`, `SD:/loki/oui.txt`, etc.
 
 **Generate themes** from the original Loki project's theme assets:
 ```bash

@@ -1,6 +1,8 @@
 # SD Card Contents for Loki CYD
 
-Copy the `loki/` folder to the root of a FAT32-formatted MicroSD card.
+Copy the `loki/` folder (from this directory) to the **root** of a FAT32-formatted MicroSD card.
+
+The result should be `SD:/loki/themes/`, `SD:/loki/oui.txt`, etc. Do NOT copy the `sdcard_contents/` folder itself — copy the `loki/` folder inside it.
 
 ## Structure
 ```
