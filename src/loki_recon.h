@@ -38,6 +38,9 @@ int getDeviceCount();
 LokiCredEntry* getCredLog();
 int getCredLogCount();
 
+// Add a credential to the log (used by storage to restore on boot)
+void restoreCredential(uint8_t* ip, uint16_t port, const char* user, const char* pass);
+
 // Clear data
 void clearDevices();
 void clearCredLog();

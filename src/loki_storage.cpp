@@ -12,8 +12,11 @@
 #include "loki_storage.h"
 #include "loki_config.h"
 #include "loki_recon.h"
+#include "loki_sprites.h"
 #include "loki_pet.h"
 #include <SPIFFS.h>
+#include <SD.h>
+#include <SPI.h>
 #include <ArduinoJson.h>
 
 namespace LokiStorage {
@@ -39,19 +42,9 @@ bool available() { return spiffsReady; }
 // SAVE CREDENTIALS
 // =============================================================================
 
-void saveCredentials() {
-    if (!spiffsReady) return;
-
+static void writeCredsToFile(File& f) {
     int count = LokiRecon::getCredLogCount();
     LokiCredEntry* creds = LokiRecon::getCredLog();
-
-    File f = SPIFFS.open("/loot/credentials.json", FILE_WRITE);
-    if (!f) {
-        // Create directory by just writing the file
-        f = SPIFFS.open("/credentials.json", FILE_WRITE);
-        if (!f) return;
-    }
-
     f.print("[");
     for (int i = 0; i < count; i++) {
         if (i > 0) f.print(",");
@@ -62,8 +55,27 @@ void saveCredentials() {
                  ip, creds[i].port, creds[i].user, creds[i].pass);
     }
     f.print("]");
-    f.close();
-    Serial.printf("[STORAGE] Saved %d credentials\n", count);
+}
+
+void saveCredentials() {
+    int count = LokiRecon::getCredLogCount();
+
+    // Save to SD card if available
+    if (LokiSprites::sdAvailable()) {
+        SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+        if (SD.begin(SD_CS, SPI, 4000000)) {
+            File f = SD.open("/loki/loot/credentials.json", FILE_WRITE);
+            if (f) { writeCredsToFile(f); f.close(); }
+            SD.end();
+            Serial.printf("[STORAGE] Saved %d creds to SD\n", count);
+        }
+    }
+
+    // Also save to SPIFFS as backup
+    if (spiffsReady) {
+        File f = SPIFFS.open("/credentials.json", FILE_WRITE);
+        if (f) { writeCredsToFile(f); f.close(); }
+    }
 }
 
 // =============================================================================
@@ -139,21 +151,12 @@ void saveAttackLog() {
 // LOAD CREDENTIALS (on boot)
 // =============================================================================
 
-void loadCredentials() {
-    if (!spiffsReady) return;
-
-    File f = SPIFFS.open("/credentials.json", FILE_READ);
-    if (!f) return;
-
-    String content = f.readString();
-    f.close();
-
-    // Parse JSON and populate credential log
+static bool restoreCredsFromJson(const String& content) {
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, content);
     if (err) {
         Serial.printf("[STORAGE] JSON parse error: %s\n", err.c_str());
-        return;
+        return false;
     }
 
     JsonArray arr = doc.as<JsonArray>();
@@ -165,19 +168,41 @@ void loadCredentials() {
         const char* pass = obj["pass"];
 
         if (ip && user && pass) {
-            // Parse IP string to bytes
             uint8_t ipBytes[4];
             sscanf(ip, "%hhu.%hhu.%hhu.%hhu",
                    &ipBytes[0], &ipBytes[1], &ipBytes[2], &ipBytes[3]);
-
-            // Add to live credential log via recon module
-            // (We can't call addCredential directly since it's static)
-            // Instead, just log to serial — the cred log will be populated on next scan
-            Serial.printf("[STORAGE] Loaded cred: %s:%d %s:%s\n", ip, port, user, pass);
+            LokiRecon::restoreCredential(ipBytes, port, user, pass);
             loaded++;
         }
     }
-    Serial.printf("[STORAGE] Loaded %d credentials from flash\n", loaded);
+    if (loaded > 0) Serial.printf("[STORAGE] Restored %d credentials\n", loaded);
+    return loaded > 0;
+}
+
+void loadCredentials() {
+    // Try SD card first
+    if (LokiSprites::sdAvailable()) {
+        SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+        if (SD.begin(SD_CS, SPI, 4000000)) {
+            File f = SD.open("/loki/loot/credentials.json", FILE_READ);
+            if (f) {
+                String content = f.readString();
+                f.close();
+                SD.end();
+                if (restoreCredsFromJson(content)) return;
+            } else {
+                SD.end();
+            }
+        }
+    }
+
+    // Fall back to SPIFFS
+    if (!spiffsReady) return;
+    File f = SPIFFS.open("/credentials.json", FILE_READ);
+    if (!f) return;
+    String content = f.readString();
+    f.close();
+    restoreCredsFromJson(content);
 }
 
 // =============================================================================

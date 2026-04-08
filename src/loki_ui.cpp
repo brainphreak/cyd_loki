@@ -139,6 +139,18 @@ void drawWifiScan() {
         tft.printf("ch%d", networks[i].channel);
     }
 
+    // Scrollbar (right edge)
+    if (networkCount > maxVisible) {
+        int sbX = SCREEN_WIDTH - 6;
+        int sbY = listY;
+        int sbH = maxVisible * lineH;
+        int thumbH = max(10, sbH * maxVisible / networkCount);
+        int maxScrl = max(1, networkCount - maxVisible);
+        int thumbY = sbY + (sbH - thumbH) * networkScroll / maxScrl;
+        tft.fillRect(sbX, sbY, 4, sbH, LOKI_BG_ELEVATED);
+        tft.fillRect(sbX, thumbY, 4, thumbH, LOKI_GREEN);
+    }
+
     // Bottom buttons
     int btnY = SCREEN_HEIGHT - 30;
     int btnW = SCREEN_WIDTH / 3 - 6;
@@ -413,6 +425,10 @@ void drawDeviceList() {
     int devCount = LokiRecon::getDeviceCount();
     LokiDevice* devs = LokiRecon::getDevices();
 
+    int listY = 40;
+    int lineH = SCALE_H(20);
+    int maxVisible = (SCREEN_HEIGHT - 70 - listY) / lineH;
+
     if (devCount == 0) {
         tft.setTextColor(LOKI_TEXT_DIM);
         tft.setTextSize(1);
@@ -421,9 +437,6 @@ void drawDeviceList() {
         tft.setCursor(5, 60);
         tft.print("Run a scan first.");
     } else {
-        int listY = 40;
-        int lineH = SCALE_H(20);
-        int maxVisible = (SCREEN_HEIGHT - 70 - listY) / lineH;
 
         // Clamp scroll
         int maxScroll = max(0, devCount - maxVisible);
@@ -477,59 +490,43 @@ void drawDeviceList() {
         }
     }
 
-    // Scroll Up / Clear / Back buttons
+    // Scrollbar (right edge)
+    if (devCount > 0) {
+        int maxVisible = (SCREEN_HEIGHT - 70 - listY) / lineH;
+        if (devCount > maxVisible) {
+            int sbX = SCREEN_WIDTH - 6;
+            int sbY = listY;
+            int sbH = SCREEN_HEIGHT - 70 - listY;
+            int thumbH = max(10, sbH * maxVisible / devCount);
+            int thumbY = sbY + (sbH - thumbH) * devScroll / max(1, devCount - maxVisible);
+            tft.fillRect(sbX, sbY, 4, sbH, LOKI_BG_ELEVATED);
+            tft.fillRect(sbX, thumbY, 4, thumbH, LOKI_GREEN);
+        }
+    }
+
+    // Back button (drag to scroll)
     int btnY = SCREEN_HEIGHT - 30;
-    int btnW = SCREEN_WIDTH / 3 - 4;
-
-    tft.fillRoundRect(2, btnY, btnW, 24, 3, LOKI_BG_SURFACE);
-    tft.drawRoundRect(2, btnY, btnW, 24, 3, LOKI_CYAN);
+    tft.fillRoundRect(SCREEN_WIDTH / 2 - 50, btnY, 100, 24, 3, LOKI_BG_SURFACE);
+    tft.drawRoundRect(SCREEN_WIDTH / 2 - 50, btnY, 100, 24, 3, LOKI_RED);
     tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(LOKI_CYAN);
-    tft.drawString("Up", 2 + btnW / 2, btnY + 12);
-
-    int midX = SCREEN_WIDTH / 3 + 1;
-    tft.fillRoundRect(midX, btnY, btnW, 24, 3, LOKI_BG_SURFACE);
-    tft.drawRoundRect(midX, btnY, btnW, 24, 3, LOKI_MAGENTA);
-    tft.setTextColor(LOKI_MAGENTA);
-    tft.drawString("Clear", midX + btnW / 2, btnY + 12);
-
-    int rightX = SCREEN_WIDTH * 2 / 3 + 1;
-    tft.fillRoundRect(rightX, btnY, btnW, 24, 3, LOKI_BG_SURFACE);
-    tft.drawRoundRect(rightX, btnY, btnW, 24, 3, LOKI_RED);
     tft.setTextColor(LOKI_RED);
-    tft.drawString("Back", rightX + btnW / 2, btnY + 12);
+    tft.drawString("Back", SCREEN_WIDTH / 2, btnY + 12);
     tft.setTextDatum(TL_DATUM);
 }
 
 void handleDeviceListTouch(int x, int y) {
+    // Back button (center bottom)
     if (y >= SCREEN_HEIGHT - 30) {
-        if (x < SCREEN_WIDTH / 3) {
-            // Scroll up
-            devScroll = max(0, devScroll - 5);
-            drawDeviceList();
-        } else if (x < SCREEN_WIDTH * 2 / 3) {
-            // Clear hosts
-            LokiRecon::clearDevices();
-            devScroll = 0;
-            drawDeviceList();
-        }
-        // Right third = Back (handled by caller)
+        // Handled by caller as "back"
         return;
     }
 
-    // Device selection
+    // Tap on a device — select it for detail view
     int listY = 40;
     int lineH = SCALE_H(20);
     int idx = (y - listY) / lineH + devScroll;
     if (idx >= 0 && idx < LokiRecon::getDeviceCount()) {
         detailDevIdx = idx;
-    } else {
-        // Tapped empty area below list — scroll down
-        int devCount = LokiRecon::getDeviceCount();
-        int maxVisible = (SCREEN_HEIGHT - 70 - listY) / lineH;
-        int maxScroll = max(0, devCount - maxVisible);
-        devScroll = min(devScroll + 5, maxScroll);
-        drawDeviceList();
     }
 }
 
@@ -825,5 +822,8 @@ void handleLootTouch(int x, int y) {
 
 int getDetailDevice() { return detailDevIdx; }
 void setDetailDevice(int idx) { detailDevIdx = idx; }
+
+int getDevScroll() { return devScroll; }
+void scrollDevices(int scroll) { devScroll = scroll; }
 
 }  // namespace LokiUI

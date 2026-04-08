@@ -30,7 +30,7 @@ static LokiScore displayScore = {0};
 static char statusMain[32] = "Idle";
 static char statusSub[32] = "";
 static char prevStatusMain[32] = "";  // Track changes to avoid full redraw
-static char comment[64] = "";
+static char comment[128] = "";
 static unsigned long lastAnimFrame = 0;
 static unsigned long nextAnimInterval = 1500;
 static unsigned long lastCommentTime = 0;
@@ -151,9 +151,9 @@ static void computeLayout() {
     ly.dlgW = SCREEN_WIDTH - (int)(8 * sx);
     ly.dlgH = 54;
     ly.dlgTextX = ly.dlgX + 8;
-    ly.dlgTextY = ly.dlgY + 8;
+    ly.dlgTextY = ly.dlgY + 3;
     ly.dlgTextW = ly.dlgW - 16;
-    ly.dlgTextH = ly.dlgH - 16;
+    ly.dlgTextH = ly.dlgH - 4;
 
     ly.charX = (SCREEN_WIDTH - 175) / 2;
     ly.charY = ly.dlgY + ly.dlgH + 12;
@@ -191,9 +191,9 @@ static void computeLayout() {
         if (tc.dlgW > 0) ly.dlgW = tc.dlgW;
         if (tc.dlgH > 0) ly.dlgH = tc.dlgH;
         ly.dlgTextX = ly.dlgX + 8;
-        ly.dlgTextY = ly.dlgY + 8;
+        ly.dlgTextY = ly.dlgY + 3;
         ly.dlgTextW = ly.dlgW - 16;
-        ly.dlgTextH = ly.dlgH - 16;
+        ly.dlgTextH = ly.dlgH - 4;
 
         if (tc.charX > 0) ly.charX = tc.charX;
         if (tc.charY > 0) ly.charY = tc.charY;
@@ -595,42 +595,113 @@ static void drawCharacterFallback() {
 // DRAW DYNAMIC: Dialogue box (comment text)
 // =============================================================================
 
+// Word-wrap helper: counts lines and stores line start/width for centering
+struct WrapLine { int startIdx; int len; int widthPx; };
+
 static void drawDialogue() {
-    // Restore the baked-in speech bubble background to clear old text
-    clearArea(ly.dlgX, ly.dlgY, ly.dlgW, ly.dlgH + 10, TC.colorElevated); // +10 for tail
+    // Clear only the text area inside the baked-in speech bubble (preserve border/tail)
+    clearArea(ly.dlgTextX, ly.dlgTextY, ly.dlgTextW, ly.dlgTextH, TC.colorElevated);
 
     if (!comment[0]) return;
 
     const ElementStyle& cs = TC.commentText;
-    tft.setTextColor(cs.color);
     tft.setTextFont(cs.font);
     tft.setTextSize(cs.fontSize);
 
-    int curX = (cs.x >= 0) ? cs.x : ly.dlgTextX;
-    int curY = (cs.y >= 0) ? cs.y : ly.dlgTextY;
-    int startX = curX;
-    int maxX = ly.dlgTextX + ly.dlgTextW;
-    int maxY = ly.dlgTextY + ly.dlgTextH;
-    int lineH = (cs.font == 2) ? 18 : ((cs.font == 4) ? 28 : 10);
+    int maxW = ly.dlgTextW;
+    int lineH = (cs.font == 2) ? 16 : ((cs.font == 4) ? 26 : 10);
+    int maxLines = 3;
+
+    // --- Pass 1: word-wrap into lines ---
+    WrapLine lines[4];
+    int lineCount = 0;
+    int curX = 0;
+    int lineStart = 0;
+    int spaceW = tft.textWidth(" ");
 
     const char* p = comment;
-    while (*p && curY < maxY - lineH) {
-        char word[32];
-        int wi = 0;
-        while (*p && *p != ' ' && wi < 30) word[wi++] = *p++;
-        word[wi] = '\0';
-        if (*p == ' ') p++;
+    int charIdx = 0;
+    while (*p && lineCount < maxLines) {
+        // Extract word
+        const char* wordStart = p;
+        int wordStartIdx = charIdx;
+        while (*p && *p != ' ') { p++; charIdx++; }
+        int wordLen = charIdx - wordStartIdx;
 
+        // Measure word
+        char word[32];
+        int wl = min(wordLen, 31);
+        strncpy(word, wordStart, wl);
+        word[wl] = '\0';
         int wordW = tft.textWidth(word);
-        if (curX + wordW > maxX && curX > startX) {
-            curX = startX;
-            curY += lineH;
-            if (curY >= maxY - lineH) break;
+
+        // Wrap if needed
+        if (curX > 0 && curX + wordW > maxW) {
+            // Finish current line
+            lines[lineCount].startIdx = lineStart;
+            lines[lineCount].len = wordStartIdx - lineStart;
+            // Trim trailing space from width
+            char lineBuf[128];
+            int ll = min(lines[lineCount].len, 127);
+            strncpy(lineBuf, comment + lineStart, ll);
+            while (ll > 0 && lineBuf[ll-1] == ' ') ll--;
+            lineBuf[ll] = '\0';
+            lines[lineCount].widthPx = tft.textWidth(lineBuf);
+            lineCount++;
+            if (lineCount >= maxLines) break;
+            lineStart = wordStartIdx;
+            curX = 0;
         }
-        tft.setCursor(curX, curY);
-        tft.print(word);
-        tft.print(" ");
-        curX += wordW + tft.textWidth(" ");
+
+        curX += wordW;
+        if (*p == ' ') { p++; charIdx++; curX += spaceW; }
+    }
+
+    // Final line
+    if (lineCount < maxLines) {
+        lines[lineCount].startIdx = lineStart;
+        lines[lineCount].len = charIdx - lineStart;
+        char lineBuf[128];
+        int ll = min(lines[lineCount].len, 127);
+        strncpy(lineBuf, comment + lineStart, ll);
+        while (ll > 0 && lineBuf[ll-1] == ' ') ll--;
+        lineBuf[ll] = '\0';
+        lines[lineCount].widthPx = tft.textWidth(lineBuf);
+        lineCount++;
+    }
+
+    // --- Pass 2: draw ---
+    // If theme specifies comment_text_x/y, use fixed position (left-aligned)
+    // Otherwise, center dynamically in the dialogue box
+    bool useFixed = (cs.x >= 0 || cs.y >= 0);
+
+    int startY, startX;
+    if (useFixed) {
+        startX = (cs.x >= 0) ? cs.x : ly.dlgTextX;
+        startY = (cs.y >= 0) ? cs.y : ly.dlgTextY;
+    } else {
+        int totalTextH = lineCount * lineH;
+        startY = ly.dlgY + (ly.dlgH - totalTextH) / 2;
+        startX = 0;  // per-line centering below
+    }
+
+    tft.setTextColor(cs.color);
+    for (int i = 0; i < lineCount; i++) {
+        char lineBuf[128];
+        int ll = min(lines[i].len, 127);
+        strncpy(lineBuf, comment + lines[i].startIdx, ll);
+        while (ll > 0 && lineBuf[ll-1] == ' ') ll--;
+        lineBuf[ll] = '\0';
+
+        int drawX;
+        if (useFixed) {
+            drawX = startX;
+        } else {
+            // Center each line horizontally
+            drawX = ly.dlgX + (ly.dlgW - lines[i].widthPx) / 2;
+        }
+        tft.setCursor(drawX, startY + i * lineH);
+        tft.print(lineBuf);
     }
     tft.setTextFont(1);
 }

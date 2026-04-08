@@ -21,6 +21,8 @@
 #include "loki_ui.h"
 #include "loki_storage.h"
 
+#define TC (LokiSprites::getThemeConfig())
+
 // Touch driver
 #ifdef CYD_28
   #include "CYD28_TouchscreenR.h"
@@ -36,7 +38,15 @@ TFT_eSPI tft = TFT_eSPI();
 static LokiScreen currentScreen = SCREEN_PET;
 static bool autonomousMode = false;
 static unsigned long lastTouchTime = 0;
-static const unsigned long TOUCH_DEBOUNCE_MS = 200;
+static const unsigned long TOUCH_DEBOUNCE_MS = 150;
+
+// Drag/swipe tracking
+static bool touching = false;
+static bool didScroll = false;  // True if any scrolling happened during this touch
+static int touchStartX = 0, touchStartY = 0;
+static int touchLastX = 0, touchLastY = 0;
+static unsigned long touchStartTime = 0;
+static const int DRAG_THRESHOLD = 15;  // px to distinguish drag from tap
 
 // Touch calibration
 static Preferences prefs;
@@ -192,43 +202,44 @@ void setup() {
       loadTouchCalibration();
       if (!touchCalibrated) {
           runTouchCalibration();
-      } else {
-          // Hold screen during boot to force recalibration
-          tft.setTextDatum(MC_DATUM);
-          tft.setTextColor(LOKI_TEXT_DIM);
-          tft.drawString("Touch & hold to recalibrate...", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
-          tft.setTextDatum(TL_DATUM);
+      }
+    #endif
+
+    // Load theme first so splash can use theme colors
+    LokiUI::setup();
+    LokiPet::setup();
+
+    // --- Splash screen: clean image, no overlays ---
+    LokiSprites::drawSplash();
+    unsigned long splashStart = millis();
+
+    // Check for recalibrate (hold screen during splash)
+    #ifdef CYD_35
+      if (touchCalibrated) {
           delay(1500);
           uint16_t tx, ty;
           if (tft.getTouch(&tx, &ty)) {
               Serial.println("[TOUCH] Boot recalibration triggered");
               clearTouchCalibration();
               runTouchCalibration();
+              LokiSprites::drawSplash();  // Redraw splash after calibration
+              splashStart = millis();
           }
-          tft.fillScreen(LOKI_BG_DARK);
       }
     #endif
 
+    // Load data while splash is showing
     LokiScoreManager::load();
     LokiStorage::setup();
     LokiStorage::loadCredentials();
-    LokiUI::setup();
 
-    drawSplash();
-    delay(2000);
-
-    LokiPet::setup();
-    LokiPet::drawPetScreen();
-
-    // Auto-reconnect WiFi if saved credentials exist (don't auto-scan)
+    // Auto-reconnect WiFi
     char savedSSID[33], savedPass[65];
     if (loadWifiCreds(savedSSID, sizeof(savedSSID), savedPass, sizeof(savedPass))) {
         Serial.printf("[LOKI] Auto-connecting WiFi to '%s'...\n", savedSSID);
-        LokiPet::setStatus("Connecting WiFi...");
         WiFi.mode(WIFI_STA);
         WiFi.begin(savedSSID, savedPass);
 
-        // Wait up to 10 seconds for connection
         unsigned long t0 = millis();
         while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000) {
             delay(250);
@@ -236,20 +247,21 @@ void setup() {
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.printf("[LOKI] WiFi connected: %s\n", WiFi.localIP().toString().c_str());
-            LokiPet::setStatus("Idle");
             LokiRecon::setWiFi(savedSSID, savedPass);
-
-            // Auto-start Web UI if it was enabled
             if (loadWebUISetting()) {
                 LokiWeb::setup();
                 Serial.printf("[LOKI] Web UI auto-started on http://%s/\n", WiFi.localIP().toString().c_str());
             }
         } else {
             Serial.println("[LOKI] WiFi auto-connect failed");
-            LokiPet::setStatus("WiFi failed - tap menu");
         }
     }
 
+    // Ensure splash shows for at least 5 seconds total
+    unsigned long elapsed = millis() - splashStart;
+    if (elapsed < 5000) delay(5000 - elapsed);
+
+    LokiPet::drawPetScreen();
     Serial.println("[LOKI] Setup complete. Tap screen to interact.");
 }
 
@@ -258,19 +270,57 @@ void setup() {
 // =============================================================================
 
 void drawSplash() {
-    tft.fillScreen(LOKI_BG_DARK);
+    tft.fillScreen(TC.colorBg);
+
+    int centerX = SCREEN_WIDTH / 2;
+    int titleY = SCREEN_HEIGHT / 3 - 20;
+
+    // Theme display name as title
     tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(LOKI_GREEN);
-    tft.setTextSize(3);
-    tft.drawString("LOKI", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3);
+    tft.setTextFont(2);
+    tft.setTextSize(4);
+    tft.setTextColor(TC.colorAccent);
+    tft.drawString(TC.name, centerX, titleY);
+
+    // Subtitle
     tft.setTextSize(1);
-    tft.setTextColor(LOKI_TEXT_DIM);
-    tft.drawString("LAN Orchestrated", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3 + 35);
-    tft.drawString("Key Infiltrator", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3 + 50);
-    tft.setTextColor(LOKI_DIM);
-    tft.drawString(LOKI_VERSION, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3 + 80);
-    tft.setTextColor(LOKI_TEXT);
-    tft.drawString("Tap to begin", SCREEN_WIDTH / 2, SCREEN_HEIGHT * 3 / 4);
+    tft.setTextColor(TC.colorTextDim);
+    tft.drawString("Autonomous Network Recon", centerX, titleY + 50);
+    tft.drawString("Virtual Pet", centerX, titleY + 70);
+
+    // Version
+    tft.setTextColor(TC.colorAccentDim);
+    tft.drawString(LOKI_VERSION, centerX, titleY + 100);
+
+    // Divider line
+    int lineY = titleY + 120;
+    tft.drawLine(60, lineY, SCREEN_WIDTH - 60, lineY, TC.colorElevated);
+
+    // Credits
+    tft.setTextColor(TC.colorTextDim);
+    tft.drawString("github.com/brainphreak/cyd_loki", centerX, lineY + 20);
+
+    // Loading bar outline
+    int barX = 60, barY = SCREEN_HEIGHT - 80, barW = SCREEN_WIDTH - 120, barH = 8;
+    tft.drawRect(barX, barY, barW, barH, TC.colorElevated);
+
+    tft.setTextFont(1);
+    tft.setTextDatum(TL_DATUM);
+}
+
+void splashProgress(int percent, const char* msg) {
+    int barX = 60, barY = SCREEN_HEIGHT - 80, barW = SCREEN_WIDTH - 120, barH = 8;
+    int fillW = (barW - 2) * percent / 100;
+    tft.fillRect(barX + 1, barY + 1, fillW, barH - 2, TC.colorAccent);
+
+    // Status text below bar
+    tft.fillRect(0, barY + 14, SCREEN_WIDTH, 16, TC.colorBg);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextFont(2);
+    tft.setTextSize(1);
+    tft.setTextColor(TC.colorTextDim);
+    tft.drawString(msg, SCREEN_WIDTH / 2, barY + 22);
+    tft.setTextFont(1);
     tft.setTextDatum(TL_DATUM);
 }
 
@@ -300,15 +350,87 @@ bool getTouchPoint(int& x, int& y) {
     return false;
 }
 
+// Check if current screen supports drag scrolling
+static bool isScrollableScreen() {
+    return currentScreen == SCREEN_DEVICE_LIST ||
+           currentScreen == SCREEN_KILL_FEED ||
+           currentScreen == SCREEN_WIFI_SCAN;
+}
+
 void handleTouch() {
     int tx, ty;
-    if (!getTouchPoint(tx, ty)) return;
+    bool isTouching = getTouchPoint(tx, ty);
+
+    // --- Drag tracking for scrollable screens ---
+    if (isScrollableScreen()) {
+        if (isTouching && !touching) {
+            // Touch start — skip drag tracking if in button bar area
+            if (ty >= SCREEN_HEIGHT - 35) {
+                // Button area — process as normal tap immediately
+                touching = false;
+            } else {
+                touching = true;
+                didScroll = false;
+                touchStartX = tx; touchStartY = ty;
+                touchLastX = tx; touchLastY = ty;
+                touchStartTime = millis();
+                return;
+            }
+        }
+        if (isTouching && touching) {
+            // Scrollbar drag — only on right side (x > 75% of screen)
+            if (touchStartX < SCREEN_WIDTH * 3 / 4) {
+                touchLastX = tx; touchLastY = ty;
+                return;
+            }
+            // Map touch Y directly to scroll position within scrollbar track
+            int sbTop = 40;  // Scrollbar starts at list top
+            int sbBottom = SCREEN_HEIGHT - 35;  // Ends above buttons
+            int sbH = sbBottom - sbTop;
+            float pct = constrain((float)(ty - sbTop) / sbH, 0.0f, 1.0f);
+
+            didScroll = true;
+            if (currentScreen == SCREEN_DEVICE_LIST) {
+                int lineH = SCALE_H(20);
+                int devCount = LokiRecon::getDeviceCount();
+                int maxVisible = (SCREEN_HEIGHT - 70 - 40) / lineH;
+                int maxScroll = max(0, devCount - maxVisible);
+                int newScroll = (int)(pct * maxScroll);
+                if (newScroll != LokiUI::getDevScroll()) {
+                    LokiUI::scrollDevices(newScroll);
+                    LokiUI::drawDeviceList();
+                }
+            } else if (currentScreen == SCREEN_KILL_FEED) {
+                int maxScroll = max(0, LokiPet::getKillFeedCount() - attackLogMaxLines);
+                int newScroll = (int)(pct * maxScroll);
+                if (newScroll != attackLogScroll) {
+                    attackLogScroll = newScroll;
+                    drawAttackLog();
+                }
+            }
+            touchLastY = ty;
+            return;
+        }
+        if (!isTouching && touching) {
+            // Touch released
+            touching = false;
+            if (didScroll || touchStartX >= SCREEN_WIDTH * 3 / 4) {
+                // Was a scrollbar interaction — don't select anything
+                lastTouchTime = millis();
+                return;
+            }
+            // No scrolling happened + touch was on left side = tap
+            tx = touchStartX;
+            ty = touchStartY;
+            isTouching = true;  // Force tap processing
+        }
+    }
+
+    if (!isTouching) return;
 
     unsigned long now = millis();
     if (now - lastTouchTime < TOUCH_DEBOUNCE_MS) return;
     lastTouchTime = now;
-
-    Serial.printf("[TOUCH] screen=%d x=%d y=%d\n", currentScreen, tx, ty);
 
     switch (currentScreen) {
         case SCREEN_PET:
@@ -331,26 +453,10 @@ void handleTouch() {
             break;
 
         case SCREEN_KILL_FEED:
+            // Back button (drag handles scrolling)
             if (ty >= SCREEN_HEIGHT - 30) {
-                if (tx < SCREEN_WIDTH / 2) {
-                    // Clear log
-                    LokiPet::clearKillFeed();
-                    attackLogScroll = 0;
-                    drawAttackLog();
-                } else {
-                    // Back button
-                    currentScreen = SCREEN_PET;
-                    LokiPet::drawPetScreen();
-                }
-            } else if (ty < SCREEN_HEIGHT / 2) {
-                // Scroll up
-                attackLogScroll = max(0, attackLogScroll - 5);
-                drawAttackLog();
-            } else {
-                // Scroll down
-                int maxScroll = max(0, LokiPet::getKillFeedCount() - attackLogMaxLines);
-                attackLogScroll = min(attackLogScroll + 5, maxScroll);
-                drawAttackLog();
+                currentScreen = SCREEN_PET;
+                LokiPet::drawPetScreen();
             }
             break;
 
@@ -427,14 +533,16 @@ void handleTouch() {
         }
 
         case SCREEN_DEVICE_LIST:
-            LokiUI::handleDeviceListTouch(tx, ty);
-            if (LokiUI::getDetailDevice() >= 0) {
-                currentScreen = SCREEN_DEVICE_DETAIL;
-                LokiUI::drawDeviceDetail(LokiUI::getDetailDevice());
-            }
-            if (ty >= SCREEN_HEIGHT - 30 && tx >= SCREEN_WIDTH * 2 / 3) {
+            if (ty >= SCREEN_HEIGHT - 35) {
+                // Back button (centered)
                 currentScreen = SCREEN_MENU;
                 drawMenu();
+            } else {
+                LokiUI::handleDeviceListTouch(tx, ty);
+                if (LokiUI::getDetailDevice() >= 0) {
+                    currentScreen = SCREEN_DEVICE_DETAIL;
+                    LokiUI::drawDeviceDetail(LokiUI::getDetailDevice());
+                }
             }
             break;
 
@@ -824,6 +932,22 @@ void handleThemePickerTouch(int x, int y) {
         currentThemeIdx = idx;
         const char* themeName = LokiSprites::getThemeName(idx);
         Serial.printf("[THEME] Selected: %s\n", LokiSprites::getThemeDisplayName(idx));
+
+        // Highlight selected theme immediately for visual feedback
+        int iy = startY + idx * itemH;
+        tft.fillRoundRect(10, iy, SCREEN_WIDTH - 20, itemH - 4, 4, LOKI_GREEN);
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextFont(2);
+        tft.setTextSize(2);
+        tft.setTextColor(LOKI_BG_DARK);
+        tft.drawString(LokiSprites::getThemeDisplayName(idx), SCREEN_WIDTH / 2, iy + itemH / 2 - 2);
+        // Loading text above Back button
+        int loadY = SCREEN_HEIGHT - 55;
+        tft.setTextSize(1);
+        tft.setTextColor(LOKI_GREEN);
+        tft.drawString("Loading...", SCREEN_WIDTH / 2, loadY);
+        tft.setTextFont(1);
+        tft.setTextDatum(TL_DATUM);
         LokiSprites::loadTheme(themeName);
         // Save to NVS so it persists across reboots
         Preferences p;
@@ -873,30 +997,26 @@ void drawAttackLog() {
             tft.print(text);
         }
 
-        // Scroll indicator
-        tft.setTextColor(LOKI_TEXT_DIM);
-        tft.setTextDatum(MC_DATUM);
-        char scrollInfo[24];
-        snprintf(scrollInfo, sizeof(scrollInfo), "%d-%d / %d",
-                 attackLogScroll + 1, min(attackLogScroll + attackLogMaxLines, count), count);
-        tft.drawString(scrollInfo, SCREEN_WIDTH / 2, SCREEN_HEIGHT - 40);
-        tft.drawString("^ Tap upper half to scroll up ^", SCREEN_WIDTH / 2, SCREEN_HEIGHT - 28);
-        tft.setTextDatum(TL_DATUM);
+        // Scrollbar (right edge)
+        if (count > attackLogMaxLines) {
+            int sbX = SCREEN_WIDTH - 6;
+            int sbY = startY;
+            int sbH = attackLogMaxLines * lineH;
+            int thumbH = max(10, sbH * attackLogMaxLines / count);
+            int maxScrl = max(1, count - attackLogMaxLines);
+            int thumbY = sbY + (sbH - thumbH) * attackLogScroll / maxScrl;
+            tft.fillRect(sbX, sbY, 4, sbH, LOKI_BG_ELEVATED);
+            tft.fillRect(sbX, thumbY, 4, thumbH, LOKI_GREEN);
+        }
     }
 
-    // Clear + Back buttons
-    int btnY2 = SCREEN_HEIGHT - 22;
-    int btnW2 = SCREEN_WIDTH / 2 - 6;
-    tft.fillRoundRect(4, btnY2, btnW2, 20, 3, LOKI_BG_SURFACE);
-    tft.drawRoundRect(4, btnY2, btnW2, 20, 3, LOKI_MAGENTA);
+    // Back button (drag to scroll)
+    int btnY2 = SCREEN_HEIGHT - 26;
+    tft.fillRoundRect(SCREEN_WIDTH / 2 - 50, btnY2, 100, 22, 3, LOKI_BG_SURFACE);
+    tft.drawRoundRect(SCREEN_WIDTH / 2 - 50, btnY2, 100, 22, 3, LOKI_RED);
     tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(LOKI_MAGENTA);
-    tft.drawString("Clear Log", 4 + btnW2 / 2, btnY2 + 10);
-
-    tft.fillRoundRect(SCREEN_WIDTH / 2 + 2, btnY2, btnW2, 20, 3, LOKI_BG_SURFACE);
-    tft.drawRoundRect(SCREEN_WIDTH / 2 + 2, btnY2, btnW2, 20, 3, LOKI_RED);
     tft.setTextColor(LOKI_RED);
-    tft.drawString("Back", SCREEN_WIDTH / 2 + 2 + btnW2 / 2, btnY2 + 10);
+    tft.drawString("Back", SCREEN_WIDTH / 2, btnY2 + 11);
     tft.setTextDatum(TL_DATUM);
 }
 

@@ -39,12 +39,12 @@ Me treasure chest is empty. Me patience too.
 What did the idle pirate say? 'ARRR you kidding me?!'
 Bored enough to swab the deck... ALMOST.
 The kraken could show up right now and I'd thank it!
-I've sharpened me cutlass so many times it's a butter kni...
+I've sharpened me cutlass so many times it's a butter knife now.
 Aye, even Blackbeard took days off... but not THIS many!
 Waitin' for a target be like waitin' for land... forever!
 Me peg leg's tappin' impatiently...
 What's worse than walkin' the plank? SITTIN' ON IT!
-Arr, I'm bored enough to talk to the parrot about me feel...
+Arr, I'm bored enough to talk to the parrot about me feelings!
 The ocean provides... eventually. RIGHT?!
 I've got 99 doubloons and nothin' to spend 'em on!
 This be the doldrums of hackin'!
@@ -57,7 +57,7 @@ Every log entry tells a tale of the seas!
 Me spyglass be on the logs! Arr!
 Log divin'! It's like searchin' for sunken treasure!
 Readin' logs readin' logs... Arr! Found somethin'!
-What did the pirate say to the log file? 'Spill yer secre...
+What did the pirate say to the log file? 'Spill yer secrets!'
 These logs be more revealin' than a treasure map! Arr!
 Compilin' log data with extra pirate flair!
 Scannin' logs for clues to the treasure!
@@ -154,7 +154,7 @@ Every attempt brings me closer to the treasure!
 The seas don't stop and neither do I! Arr!
 This lock will fall like every port before it!
 Crackin' shells be what pirates DO!
-Arr, I'll have this open faster than ye can say 'Cap'N Pl...
+Arr, I'll have this open faster than ye can say 'Cap'N Plndr'!
 Arr! Time to raid their shared bounty!
 SMB shares? More like SMB Fails! Arr!
 Boardin' the SMB vessel! All hands on deck!
@@ -190,7 +190,7 @@ Who still uses FTP?! A pirate's DREAM! Arr!
 Anonymous FTP? That be the easiest plunder of me life!
 FTP without encryption be like a ship without a sail! Arr!
 Crackin' FTP credentials with me trusty hook!
-What did the pirate say to the FTP server? 'Surrender yer...
+What did the pirate say to the FTP server? 'Surrender yer files!'
 FTP brute force underway! Full speed ahead!
 Me parrot found yer FTP password! Arr!
 FTP security? Now THAT'S a sailor's tale! Arr!
@@ -203,10 +203,10 @@ FTP brute force... *swings cutlass with each attempt*
 Yer FTP be as secure as a sandcastle at high tide!
 [telnet]
 Arr! Telnet?! What century be this?! Har har!
-Telnet be the treasure galleon of protocols - old and FUL...
+Telnet be the treasure galleon of protocols - old and FULL of gold!
 Brute forcin' Telnet with me peg leg! Arr!
 Cleartext passwords?! It's like they WANT to be plundered!
-What did the pirate say to Telnet? 'Thanks fer makin' it ...
+What did the pirate say to Telnet? 'Thanks fer makin' it easy!'
 Telnet security be the biggest joke on the seven seas! Arr!
 Crackin' Telnet like crackin' open a coconut! Arr!
 Telnet brute force... this be almost TOO easy!
@@ -270,7 +270,7 @@ FTP files be like gifts from the sea! Arr!
 Grabbin' FTP data with me trusty hook! Arr!
 Yer FTP server be me personal treasure island!
 Snatchin' FTP files like snatchin' gold doubloons! Arr!
-What did the pirate say to FTP? 'GET /all/yer/treasure!' ...
+What did the pirate say to FTP? 'GET /all/yer/treasure!' Arr!
 Every FTP file I grab gets a little 'Arr!' Arr!
 Me parrot approves this file transfer! Squawk!
 Arr! Time to drain the database vaults!

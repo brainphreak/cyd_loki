@@ -10,7 +10,7 @@ Output format (comments.txt):
     Comment line 1
     ...
 
-Lines are truncated to 60 chars max for the CYD display.
+Lines are truncated to 100 chars max for the CYD display (dialogue box fits ~84 chars with word wrap).
 """
 
 import json
@@ -36,7 +36,7 @@ STATE_MAP = {
     'SQLBruteforce': 'attack',
 }
 
-MAX_LEN = 60
+MAX_LEN = 100
 
 def convert(input_path, output_path):
     with open(input_path) as f:

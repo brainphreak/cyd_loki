@@ -48,6 +48,10 @@ bool hasWifiSelection();
 int getDetailDevice();
 void setDetailDevice(int idx);
 
+// Scroll control (for drag scrolling from main loop)
+int getDevScroll();
+void scrollDevices(int scroll);
+
 }  // namespace LokiUI
 
 #endif // LOKI_UI_H

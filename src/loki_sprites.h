@@ -147,6 +147,9 @@ bool drawStatusIcon(const char* state, int x, int y);
 // Get a random comment for the given state from theme's comments.txt
 bool getRandomComment(const char* state, char* buf, int bufLen);
 
+// Draw theme's splash.bmp (full screen). Returns false if not found.
+bool drawSplash();
+
 // Is SD card available?
 bool sdAvailable();
 

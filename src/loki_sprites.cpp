@@ -13,6 +13,7 @@
 #include "loki_config.h"
 #include "loki_assets.h"  // PROGMEM fallback assets
 #include "asset_bg.h"     // Background data for composite transparency
+#include "asset_splash.h" // PROGMEM splash screen
 #include <SD.h>
 #include <SPI.h>
 #include <Preferences.h>
@@ -684,6 +685,22 @@ bool drawBackground() {
     }
     // Built-in PROGMEM background
     drawProgmemRGB565(bg_data, 0, 0, BG_W, BG_H);
+    return true;
+}
+
+// =============================================================================
+// DRAW SPLASH IMAGE
+// =============================================================================
+
+bool drawSplash() {
+    // Try SD theme's splash.bmp first
+    if (usingSDTheme) {
+        char path[64];
+        snprintf(path, sizeof(path), "%ssplash.bmp", currentThemePath);
+        if (drawSDBmpOpaque(path, 0, 0)) return true;
+    }
+    // Fall back to PROGMEM loki splash
+    drawProgmemRGB565(splash_data, 0, 0, SPLASH_W, SPLASH_H);
     return true;
 }
 

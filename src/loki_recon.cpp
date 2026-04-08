@@ -1478,6 +1478,16 @@ void setWiFi(const char* newSSID, const char* newPass) {
     strncpy(pass, newPass, sizeof(pass) - 1);
 }
 
+void restoreCredential(uint8_t* ip, uint16_t port, const char* user, const char* pass) {
+    if (credLogCount < LOKI_MAX_CREDS) {
+        memcpy(credLog[credLogCount].ip, ip, 4);
+        credLog[credLogCount].port = port;
+        strncpy(credLog[credLogCount].user, user, LOKI_MAX_CRED_USER - 1);
+        strncpy(credLog[credLogCount].pass, pass, LOKI_MAX_CRED_PASS - 1);
+        credLogCount++;
+    }
+}
+
 void cleanup() { stop(); WiFi.disconnect(); WiFi.mode(WIFI_OFF); }
 
 }  // namespace LokiRecon
