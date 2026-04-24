@@ -247,6 +247,9 @@ void setup() {
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.printf("[LOKI] WiFi connected: %s\n", WiFi.localIP().toString().c_str());
+            // Sync NTP time for timestamps
+            configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+            Serial.println("[LOKI] NTP time sync started");
             LokiRecon::setWiFi(savedSSID, savedPass);
             if (loadWebUISetting()) {
                 LokiWeb::setup();
@@ -489,6 +492,7 @@ void handleTouch() {
 
                 if (WiFi.status() == WL_CONNECTED) {
                     LokiPet::setStatus("WiFi connected");
+                    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
                 } else {
                     LokiPet::setStatus("WiFi failed");
                 }
@@ -522,6 +526,7 @@ void handleTouch() {
 
                 if (WiFi.status() == WL_CONNECTED) {
                     LokiPet::setStatus("WiFi connected");
+                    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
                 } else {
                     LokiPet::setStatus("WiFi failed");
                 }
@@ -1055,7 +1060,7 @@ void drawStatsScreen() {
     drawStat("Cracked", score.servicesCracked, LOKI_HOTPINK);
     drawStat("Files Stolen", score.filesStolen, LOKI_MAGENTA);
     drawStat("Vulns Found", score.vulnsFound, LOKI_RED);
-    drawStat("Total Scans", score.totalScans, LOKI_TEXT);
+    drawStat("Attacks", score.totalAttacks, LOKI_TEXT);
 
     y += 10;
     tft.drawLine(15, y, SCREEN_WIDTH - 15, y, LOKI_BG_ELEVATED);
@@ -1083,22 +1088,28 @@ void loop() {
         LokiWeb::loop();
     }
 
-    if (LokiRecon::isRunning()) {
-        LokiScore stats = LokiRecon::getStats();
-        LokiPet::updateStats(stats);
+    {
+        static bool reconFinalized = false;
+        if (LokiRecon::isRunning()) {
+            reconFinalized = false;
+            LokiScore stats = LokiRecon::getStats();
+            LokiPet::updateStats(stats);
 
-        switch (LokiRecon::getPhase()) {
-            case PHASE_DISCOVER: LokiPet::setMood(MOOD_SCANNING); break;
-            case PHASE_IDENTIFY: LokiPet::setMood(MOOD_SCANNING); break;
-            case PHASE_ATTACK:   LokiPet::setMood(MOOD_ATTACKING); break;
-            case PHASE_DONE:
-                LokiPet::setMood(MOOD_HAPPY);
-                LokiScoreManager::save();
-                LokiStorage::saveCredentials();
-                LokiStorage::saveDevices();
-                LokiStorage::saveAttackLog();
-                break;
-            default: break;
+            switch (LokiRecon::getPhase()) {
+                case PHASE_DISCOVER: LokiPet::setMood(MOOD_SCANNING); break;
+                case PHASE_IDENTIFY: LokiPet::setMood(MOOD_SCANNING); break;
+                case PHASE_ATTACK:   LokiPet::setMood(MOOD_ATTACKING); break;
+                default: break;
+            }
+        } else if (LokiRecon::isDone() && !reconFinalized) {
+            reconFinalized = true;
+            LokiScore stats = LokiRecon::getStats();
+            LokiPet::updateStats(stats);
+            LokiPet::setMood(MOOD_HAPPY);
+            LokiScoreManager::save();
+            LokiStorage::saveCredentials();
+            LokiStorage::saveDevices();
+            LokiStorage::saveAttackLog();
         }
     }
 

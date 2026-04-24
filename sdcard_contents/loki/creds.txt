@@ -1,7 +1,7 @@
 # Loki CYD — Custom Wordlist
 #
-# These credentials are IN ADDITION to the 242 built-in combinations.
-# The firmware already tries 11 usernames x 20 passwords automatically.
+# These credentials are IN ADDITION to the 72 built-in combinations.
+# Built-in: 6 users (admin,root,user,guest,pi,Administrator) x 10 passwords + blank/same-as-user.
 # Only add target-specific or unusual credentials here.
 #
 # Format: username:password

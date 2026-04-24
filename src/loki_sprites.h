@@ -153,6 +153,14 @@ bool drawSplash();
 // Is SD card available?
 bool sdAvailable();
 
+// SD bus mutex — acquire before any SD.begin()/SD.open(), release after SD.end()
+void sdLock();
+void sdUnlock();
+
+// Mount/unmount SD with mutex — use these instead of raw SD.begin()/SD.end()
+bool sdMount();
+void sdUnmount();
+
 // Is a theme loaded?
 bool themeLoaded();
 

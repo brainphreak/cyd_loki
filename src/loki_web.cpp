@@ -97,6 +97,7 @@ select{cursor:pointer}.row{display:flex;gap:6px;align-items:center;margin-bottom
 <a href="#" data-t="dash" class="on">Dashboard</a>
 <a href="#" data-t="hosts">Hosts</a>
 <a href="#" data-t="loot">Loot</a>
+<a href="#" data-t="attacks">Attacks</a>
 <a href="#" data-t="settings">Settings</a>
 <a href="#" data-t="display">Display</a>
 </nav>
@@ -127,6 +128,22 @@ select{cursor:pointer}.row{display:flex;gap:6px;align-items:center;margin-bottom
 <a href="/hosts" download="hosts.json"><button class="btn sm">Hosts</button></a>
 <a href="/log" download="attack_log.txt"><button class="btn sm">Attack Log</button></a>
 </div>
+</div>
+
+<div id="attacks" class="tab">
+<h2>Manual Attacks</h2>
+<div id="atkWarn" style="display:none;color:var(--er);margin-bottom:8px">Stop auto mode first</div>
+<div class="hl">
+<button class="btn sm" onclick="atkDiscover()">Discover Hosts</button>
+<span id="atkDsc" style="font-size:11px;color:var(--td)"></span>
+</div>
+<div class="row" style="margin:8px 0"><select id="atkHost" onchange="atkSelHost()"><option value="">-- select host --</option></select>
+<button class="btn sm" onclick="atkScanPorts()">Scan Ports</button>
+<button class="btn sm" onclick="atkIdentify()">Identify</button></div>
+<div id="atkPorts" style="margin:8px 0"></div>
+<div class="hl" style="margin-top:6px"><button class="btn sm" onclick="atkRun('all')">Attack All</button>
+<span id="atkSt" style="font-size:11px;color:var(--td)">Idle</span></div>
+<div id="atkRes" style="margin-top:8px;font-size:11px"></div>
 </div>
 
 <div id="settings" class="tab">
@@ -187,6 +204,7 @@ function startPolls(){
 if(at==='dash'){updStats();updLog();iv.s=setInterval(updStats,3000);iv.l=setInterval(updLog,2000)}
 else if(at==='hosts'){fetchHosts();iv.h=setInterval(fetchHosts,10000)}
 else if(at==='loot'){fetchCreds()}
+else if(at==='attacks'){atkRefreshHosts();iv.a=setInterval(function(){if(run)$('atkWarn').style.display='block';else $('atkWarn').style.display='none'},3000)}
 else if(at==='settings'){fetchSettings();fetchThemes()}
 else if(at==='display'){refScr()}
 }
@@ -265,7 +283,7 @@ $('ct').innerHTML=h;
 function fetchSettings(){
 fetch('/stats').then(function(r){return r.json()}).then(function(d){
 $('wifiInfo').innerHTML='<p><span class="k">SSID:</span> '+(d.ssid||'N/A')+'</p><p><span class="k">IP:</span> '+(d.ip||'N/A')+'</p><p><span class="k">Signal:</span> '+(d.rssi||'?')+' dBm</p>';
-$('sysinfo').innerHTML='<h3>System</h3><p><span class="k">Version:</span> '+(d.version||'?')+'</p><p><span class="k">Free Heap:</span> '+(d.freeHeap||'?')+' bytes</p><p><span class="k">Status:</span> '+(d.running?'<span style="color:var(--ok)">Scanning</span>':'<span style="color:var(--td)">Idle</span>')+'</p>';
+var hPct=d.totalHeap?Math.round(100*(d.totalHeap-d.freeHeap)/d.totalHeap):0;var ut=d.uptime||0;var uts=Math.floor(ut/3600)+'h '+Math.floor((ut%3600)/60)+'m '+ut%60+'s';var fPct=d.flashSize?Math.round(100*d.sketchSize/d.flashSize):0;$('sysinfo').innerHTML='<h3>System</h3><p><span class="k">Status:</span> '+(d.running?'<span style="color:var(--ok)">Scanning</span>':'<span style="color:var(--td)">Idle</span>')+'</p><p><span class="k">Devices:</span> '+(d.devices||0)+' found, '+(d.credentials||0)+' cracked</p><p><span class="k">Uptime:</span> '+uts+'</p><p><span class="k">RAM:</span> '+Math.round(d.freeHeap/1024)+'KB free / '+Math.round(d.totalHeap/1024)+'KB ('+hPct+'% used, min: '+Math.round((d.minFreeHeap||0)/1024)+'KB)</p><p><span class="k">Flash:</span> '+Math.round(d.sketchSize/1024)+'KB / '+Math.round(d.flashSize/1024)+'KB ('+fPct+'% used)</p><p><span class="k">CPU:</span> '+(d.cpuFreq||'?')+' MHz</p><p><span class="k">Version:</span> '+(d.version||'?')+'</p>';
 }).catch(function(){})
 }
 
@@ -334,6 +352,68 @@ function refScr(){$('scr').src='/screenshot?t='+Date.now()}
 
 function esc(s){if(!s)return'';var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
+var portAtk={21:'ftp',22:'ssh',23:'telnet',80:'http',443:'http',8080:'http',445:'smb',3306:'mysql',3389:'rdp'};
+var atkNames={ftp:'FTP Brute',ssh:'SSH Brute',telnet:'Telnet Brute',http:'HTTP Auth',smb:'SMB',mysql:'MySQL',rdp:'RDP'};
+var atkHosts=[],atkSelIdx=-1;
+
+function atkChk(){
+if(run){$('atkWarn').style.display='block';return false}
+$('atkWarn').style.display='none';return true;
+}
+
+function atkDiscover(){
+if(!atkChk())return;$('atkDsc').textContent='Scanning...';
+fetch('/scan/discover',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+$('atkDsc').textContent='Found '+d.count+' hosts';atkRefreshHosts();
+}).catch(function(){$('atkDsc').textContent='Error'})
+}
+
+function atkRefreshHosts(){
+fetch('/hosts').then(function(r){return r.json()}).then(function(devs){
+atkHosts=devs;var sel=$('atkHost'),h='<option value="">-- select host --</option>';
+for(var i=0;i<devs.length;i++)h+='<option value="'+i+'">'+esc(devs[i].ip)+' ('+esc(devs[i].vendor||'?')+')</option>';
+sel.innerHTML=h;if(atkSelIdx>=0&&atkSelIdx<devs.length){sel.value=atkSelIdx;atkShowPorts()}
+}).catch(function(){})
+}
+
+function atkSelHost(){atkSelIdx=parseInt($('atkHost').value);if(isNaN(atkSelIdx))atkSelIdx=-1;atkShowPorts()}
+
+function atkShowPorts(){
+if(atkSelIdx<0||atkSelIdx>=atkHosts.length){$('atkPorts').innerHTML='';return}
+var d=atkHosts[atkSelIdx],h='';
+if(!d.openPorts||!d.openPorts.length){$('atkPorts').innerHTML='<span style="color:var(--td)">No open ports. Scan first.</span>';return}
+for(var i=0;i<d.openPorts.length;i++){var p=d.openPorts[i],a=portAtk[p];
+h+='<span class="tag op">'+p+'</span> ';
+if(a){var cr=d.crackedPorts&&d.crackedPorts.indexOf(p)>-1;
+h+='<button class="btn sm'+(cr?' act':'')+'" onclick="atkRun(\''+a+'\')" style="margin:2px">'+(cr?'Cracked':atkNames[a])+'</button> ';}
+}
+$('atkPorts').innerHTML=h;
+}
+
+function atkScanPorts(){
+if(!atkChk()||atkSelIdx<0)return;$('atkSt').textContent='Scanning ports...';
+fetch('/scan/ports?idx='+atkSelIdx,{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+$('atkSt').textContent=d.ports+' open ports';atkRefreshHosts();
+}).catch(function(){$('atkSt').textContent='Error'})
+}
+
+function atkIdentify(){
+if(!atkChk()||atkSelIdx<0)return;$('atkSt').textContent='Identifying...';
+fetch('/scan/identify?idx='+atkSelIdx,{method:'POST'}).then(function(r){return r.text()}).then(function(){
+$('atkSt').textContent='Done';atkRefreshHosts();
+}).catch(function(){$('atkSt').textContent='Error'})
+}
+
+function atkRun(type){
+if(!atkChk()||atkSelIdx<0)return;$('atkSt').textContent='Attacking...';
+var url=(type==='all'?'/attack/all':'/attack/'+type)+'?idx='+atkSelIdx;
+fetch(url,{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+var res=d.cracked?'<span style="color:var(--ok)">CRACKED</span>':'<span style="color:var(--td)">Failed</span>';
+if(type==='all')res=d.done?'<span style="color:var(--ok)">Complete</span>':'Done';
+$('atkSt').textContent='Complete';$('atkRes').innerHTML=type.toUpperCase()+': '+res;atkRefreshHosts();
+}).catch(function(){$('atkSt').textContent='Error'})
+}
+
 startPolls();
 </script>
 </body></html>)rawliteral";
@@ -371,7 +451,7 @@ static void handleStats() {
     json += "\"cracked\":" + String(score.servicesCracked) + ",";
     json += "\"files\":" + String(score.filesStolen) + ",";
     json += "\"vulns\":" + String(score.vulnsFound) + ",";
-    json += "\"scans\":" + String(score.totalScans) + ",";
+    json += "\"attacks\":" + String(score.totalAttacks) + ",";
     json += "\"xp\":" + String(score.xp) + ",";
     json += "\"running\":" + String(LokiRecon::isRunning() ? "true" : "false") + ",";
     // WiFi and theme info for settings tab
@@ -381,6 +461,15 @@ static void handleStats() {
     json += "\"theme\":\"" + String(LokiSprites::getThemeConfig().name) + "\",";
     json += "\"version\":\"" LOKI_VERSION "\",";
     json += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
+    json += "\"totalHeap\":" + String(ESP.getHeapSize()) + ",";
+    json += "\"minFreeHeap\":" + String(ESP.getMinFreeHeap()) + ",";
+    json += "\"cpuFreq\":" + String(ESP.getCpuFreqMHz()) + ",";
+    json += "\"uptime\":" + String(millis() / 1000) + ",";
+    json += "\"flashSize\":" + String(ESP.getFlashChipSize()) + ",";
+    json += "\"sketchSize\":" + String(ESP.getSketchSize()) + ",";
+    json += "\"freeSketch\":" + String(ESP.getFreeSketchSpace()) + ",";
+    json += "\"devices\":" + String(LokiRecon::getDeviceCount()) + ",";
+    json += "\"credentials\":" + String(LokiRecon::getCredLogCount()) + ",";
     json += "\"target\":\"" + scanTarget + "\"";
     json += "}";
     server->send(200, "application/json", json);
@@ -408,7 +497,13 @@ static void handleLog() {
     for (int i = 0; i < count; i++) {
         char line[52];
         uint16_t color;
-        LokiPet::getKillFeedLine(i, line, sizeof(line), &color);
+        uint32_t ts;
+        LokiPet::getKillFeedLine(i, line, sizeof(line), &color, &ts);
+        if (ts > 0) {
+            char tsBuf[10];
+            snprintf(tsBuf, sizeof(tsBuf), "%02d:%02d:%02d ", (int)(ts / 3600), (int)((ts % 3600) / 60), (int)(ts % 60));
+            text += String(tsBuf);
+        }
         text += String(line) + "\n";
     }
     server->send(200, "text/plain", text);
@@ -641,6 +736,9 @@ static void handleThemeSet() {
         p.begin("loki", false);
         p.putString("theme", name);
         p.end();
+        // Reload layout and redraw full pet screen
+        LokiPet::setup(false);
+        LokiPet::drawPetScreen();
         server->send(200, "text/plain", "OK - Theme: " + name);
     } else {
         server->send(200, "text/plain", "FAIL - Theme not found: " + name);
@@ -663,6 +761,79 @@ static void handleBrightness() {
 
     Serial.printf("[WEB] Brightness: %d%% (duty=%d)\n", level, duty);
     server->send(200, "text/plain", "OK");
+}
+
+// =============================================================================
+// MANUAL ATTACK API ENDPOINTS
+// =============================================================================
+
+static bool checkAutoMode() {
+    if (LokiRecon::isRunning()) {
+        server->send(409, "application/json", "{\"error\":\"Auto mode running\"}");
+        return true;
+    }
+    return false;
+}
+
+static int getIdxParam() {
+    if (!server->hasArg("idx")) return -1;
+    int idx = server->arg("idx").toInt();
+    if (idx < 0 || idx >= LokiRecon::getDeviceCount()) return -1;
+    return idx;
+}
+
+static void handleScanDiscover() {
+    if (checkAutoMode()) return;
+    int count = LokiRecon::discoverHosts();
+    server->send(200, "application/json", "{\"count\":" + String(count) + "}");
+}
+
+static void handleScanPorts() {
+    if (checkAutoMode()) return;
+    int idx = getIdxParam();
+    if (idx < 0) { server->send(400, "application/json", "{\"error\":\"Invalid idx\"}"); return; }
+    int ports = LokiRecon::scanHostPorts(idx);
+    server->send(200, "application/json", "{\"ports\":" + String(ports) + "}");
+}
+
+static void handleScanIdentify() {
+    if (checkAutoMode()) return;
+    int idx = getIdxParam();
+    if (idx < 0) { server->send(400, "application/json", "{\"error\":\"Invalid idx\"}"); return; }
+    LokiRecon::identifyServices(idx);
+    server->send(200, "application/json", "{\"ok\":true}");
+}
+
+static void handleAttackProto(bool (*fn)(int)) {
+    if (checkAutoMode()) return;
+    int idx = getIdxParam();
+    if (idx < 0) { server->send(400, "application/json", "{\"error\":\"Invalid idx\"}"); return; }
+    bool cracked = fn(idx);
+    server->send(200, "application/json", cracked ? "{\"cracked\":true}" : "{\"cracked\":false}");
+}
+
+static void handleAttackSSH()    { handleAttackProto(LokiRecon::attackSSH); }
+static void handleAttackFTP()    { handleAttackProto(LokiRecon::attackFTP); }
+static void handleAttackTelnet() { handleAttackProto(LokiRecon::attackTelnet); }
+static void handleAttackHTTP()   { handleAttackProto(LokiRecon::attackHTTP); }
+static void handleAttackMySQL()  { handleAttackProto(LokiRecon::attackMySQL); }
+static void handleAttackSMB()    { handleAttackProto(LokiRecon::attackSMB); }
+static void handleAttackRDP()    { handleAttackProto(LokiRecon::attackRDP); }
+
+static void handleAttackAll() {
+    if (checkAutoMode()) return;
+    int idx = getIdxParam();
+    if (idx < 0) { server->send(400, "application/json", "{\"error\":\"Invalid idx\"}"); return; }
+    LokiRecon::attackAllPorts(idx);
+    server->send(200, "application/json", "{\"done\":true}");
+}
+
+static void handleAttackTypes() {
+    server->send(200, "application/json",
+        "[{\"type\":\"ftp\",\"port\":21},{\"type\":\"ssh\",\"port\":22},"
+        "{\"type\":\"telnet\",\"port\":23},{\"type\":\"http\",\"ports\":[80,443,8080]},"
+        "{\"type\":\"smb\",\"port\":445},{\"type\":\"mysql\",\"port\":3306},"
+        "{\"type\":\"rdp\",\"port\":3389}]");
 }
 
 // =============================================================================
@@ -689,6 +860,19 @@ void setup() {
     server->on("/themes", HTTP_GET, handleThemes);
     server->on("/theme/set", HTTP_POST, handleThemeSet);
     server->on("/brightness", HTTP_POST, handleBrightness);
+    // Manual attack endpoints
+    server->on("/scan/discover", HTTP_POST, handleScanDiscover);
+    server->on("/scan/ports", HTTP_POST, handleScanPorts);
+    server->on("/scan/identify", HTTP_POST, handleScanIdentify);
+    server->on("/attack/ssh", HTTP_POST, handleAttackSSH);
+    server->on("/attack/ftp", HTTP_POST, handleAttackFTP);
+    server->on("/attack/telnet", HTTP_POST, handleAttackTelnet);
+    server->on("/attack/http", HTTP_POST, handleAttackHTTP);
+    server->on("/attack/mysql", HTTP_POST, handleAttackMySQL);
+    server->on("/attack/smb", HTTP_POST, handleAttackSMB);
+    server->on("/attack/rdp", HTTP_POST, handleAttackRDP);
+    server->on("/attack/all", HTTP_POST, handleAttackAll);
+    server->on("/attack/types", HTTP_GET, handleAttackTypes);
     server->begin();
     webRunning = true;
 

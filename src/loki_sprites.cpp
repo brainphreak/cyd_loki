@@ -26,6 +26,7 @@ namespace LokiSprites {
 // STATE
 // =============================================================================
 
+static SemaphoreHandle_t sdMutex = NULL;
 static bool sdReady = false;
 static bool hasSDTheme = false;
 static bool usingSDTheme = false;
@@ -54,16 +55,39 @@ static StateInfo sdStates[MAX_STATES] = {
 // SD CARD
 // =============================================================================
 
-static bool mountSD() {
+void sdLock() {
+    if (!sdMutex) sdMutex = xSemaphoreCreateMutex();
+    xSemaphoreTake(sdMutex, portMAX_DELAY);
+}
+
+void sdUnlock() {
+    if (sdMutex) xSemaphoreGive(sdMutex);
+}
+
+static bool sdMounted = false;
+
+static bool ensureSD() {
+    if (sdMounted) return true;
     SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
     pinMode(SD_CS, OUTPUT);
     digitalWrite(SD_CS, HIGH);
-    return SD.begin(SD_CS, SPI, 4000000);
+    sdMounted = SD.begin(SD_CS, SPI, 4000000);
+    return sdMounted;
+}
+
+static bool mountSD() {
+    sdLock();
+    if (ensureSD()) return true;
+    sdUnlock();
+    return false;
 }
 
 static void unmountSD() {
-    SD.end();
+    sdUnlock();
 }
+
+bool sdMount() { return mountSD(); }
+void sdUnmount() { unmountSD(); }
 
 // =============================================================================
 // PROGMEM DRAWING (built-in fallback)

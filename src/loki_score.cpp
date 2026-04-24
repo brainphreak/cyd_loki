@@ -20,7 +20,7 @@ void load() {
     score.servicesCracked = prefs.getUInt("cracked", 0);
     score.filesStolen     = prefs.getUInt("files", 0);
     score.vulnsFound      = prefs.getUInt("vulns", 0);
-    score.totalScans      = prefs.getUInt("scans", 0);
+    score.totalAttacks      = prefs.getUInt("scans", 0);
     score.xp              = prefs.getUInt("xp", 0);
     prefs.end();
 }
@@ -32,7 +32,7 @@ void save() {
     prefs.putUInt("cracked", score.servicesCracked);
     prefs.putUInt("files",   score.filesStolen);
     prefs.putUInt("vulns",   score.vulnsFound);
-    prefs.putUInt("scans",   score.totalScans);
+    prefs.putUInt("scans",   score.totalAttacks);
     prefs.putUInt("xp",      score.xp);
     prefs.end();
 }
@@ -51,11 +51,11 @@ void addPortFound()       { score.portsFound++;      score.xp += 2;   }
 void addServiceCracked()  { score.servicesCracked++; score.xp += 100; }
 void addFileStolen()      { score.filesStolen++;     score.xp += 50;  }
 void addVulnFound()       { score.vulnsFound++;      score.xp += 25;  }
-void addScanCompleted()   { score.totalScans++;      score.xp += 5;   }
+void addAttackCompleted()   { score.totalAttacks++;      score.xp += 5;   }
 
 uint32_t calculateXP(const LokiScore& s) {
     return s.hostsFound * 10 + s.portsFound * 2 + s.servicesCracked * 100
-         + s.filesStolen * 50 + s.vulnsFound * 25 + s.totalScans * 5;
+         + s.filesStolen * 50 + s.vulnsFound * 25 + s.totalAttacks * 5;
 }
 
 LokiMood suggestMood() {

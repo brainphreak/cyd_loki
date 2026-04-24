@@ -54,6 +54,40 @@ void setWiFi(const char* ssid, const char* pass);
 // Cleanup
 void cleanup();
 
+// =========================================================================
+// Modular attack functions — callable individually or via auto-mode
+// =========================================================================
+
+// Connect to WiFi using stored ssid/pass, return success
+bool connectWiFi();
+
+// ARP scan the subnet, populate devices array, return count
+int discoverHosts();
+
+// Port scan a specific device, return open port count
+int scanHostPorts(int deviceIdx);
+
+// Banner grab + fingerprint a device
+void identifyServices(int deviceIdx);
+
+// Individual protocol attacks — return true if cracked
+bool attackSSH(int deviceIdx);
+bool attackFTP(int deviceIdx);
+bool attackTelnet(int deviceIdx);
+bool attackHTTP(int deviceIdx);
+bool attackMySQL(int deviceIdx);
+bool attackSMB(int deviceIdx);
+bool attackRDP(int deviceIdx);
+
+// Run all relevant attacks on a device's open ports
+void attackAllPorts(int deviceIdx);
+
+// File steal attacks — run after brute force on cracked hosts (requires SD card)
+int stealFiles(int deviceIdx);
+
+// Full autonomous pipeline calling the above in sequence
+void runAutoMode();
+
 }  // namespace LokiRecon
 
 #endif // LOKI_RECON_H

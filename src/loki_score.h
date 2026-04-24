@@ -28,7 +28,7 @@ void addPortFound();
 void addServiceCracked();
 void addFileStolen();
 void addVulnFound();
-void addScanCompleted();
+void addAttackCompleted();
 
 // Calculate XP from score components
 uint32_t calculateXP(const LokiScore& score);

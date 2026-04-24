@@ -62,11 +62,10 @@ void saveCredentials() {
 
     // Save to SD card if available
     if (LokiSprites::sdAvailable()) {
-        SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
-        if (SD.begin(SD_CS, SPI, 4000000)) {
+        if (LokiSprites::sdMount()) {
             File f = SD.open("/loki/loot/credentials.json", FILE_WRITE);
             if (f) { writeCredsToFile(f); f.close(); }
-            SD.end();
+            LokiSprites::sdUnmount();
             Serial.printf("[STORAGE] Saved %d creds to SD\n", count);
         }
     }
@@ -182,18 +181,18 @@ static bool restoreCredsFromJson(const String& content) {
 void loadCredentials() {
     // Try SD card first
     if (LokiSprites::sdAvailable()) {
-        SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
-        if (SD.begin(SD_CS, SPI, 4000000)) {
+        String content;
+        bool loaded = false;
+        if (LokiSprites::sdMount()) {
             File f = SD.open("/loki/loot/credentials.json", FILE_READ);
             if (f) {
-                String content = f.readString();
+                content = f.readString();
                 f.close();
-                SD.end();
-                if (restoreCredsFromJson(content)) return;
-            } else {
-                SD.end();
+                loaded = true;
             }
+            LokiSprites::sdUnmount();
         }
+        if (loaded && restoreCredsFromJson(content)) return;
     }
 
     // Fall back to SPIFFS

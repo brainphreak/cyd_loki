@@ -13,6 +13,7 @@
 #include "loki_status_icons.h"
 #include <TFT_eSPI.h>
 #include <WiFi.h>
+#include <time.h>
 
 extern TFT_eSPI tft;
 
@@ -358,12 +359,12 @@ static void drawStatValues() {
     uint32_t networkkb = displayScore.hostsFound;      // Hosts in knowledge base
     uint32_t level = (uint32_t)(networkkb * 0.1 + displayScore.servicesCracked * 0.2 +
                      displayScore.filesStolen * 0.1 + zombies * 0.5 +
-                     displayScore.totalScans + displayScore.vulnsFound * 0.01);
+                     displayScore.totalAttacks + displayScore.vulnsFound * 0.01);
 
     uint32_t values[9] = {
         displayScore.hostsFound, displayScore.portsFound, displayScore.vulnsFound,
         displayScore.servicesCracked, zombies, displayScore.filesStolen,
-        networkkb, level, displayScore.totalScans,
+        networkkb, level, displayScore.totalAttacks,
     };
 
     for (int i = 0; i < 9; i++) {
@@ -868,14 +869,24 @@ void setStatus(const char* main, const char* sub) {
 void addKillLine(const char* text, uint16_t color) {
     // Thread-safe: only update data, don't draw (Core 0 calls this)
     // Core 1 will draw on next loop iteration
+
+    // Store timestamp separately for web UI (display is too narrow for inline timestamps)
+    uint32_t ts = 0;
+    struct tm ti;
+    if (getLocalTime(&ti, 0)) {
+        ts = ti.tm_hour * 3600 + ti.tm_min * 60 + ti.tm_sec;
+    }
+
     if (killFeedCount < LOKI_MAX_KILL_LINES) {
         strncpy(killFeed[killFeedCount].text, text, 51);
         killFeed[killFeedCount].color = color;
+        killFeed[killFeedCount].timestamp = ts;
         killFeedCount++;
     } else {
         memmove(&killFeed[0], &killFeed[1], sizeof(LokiKillLine) * (LOKI_MAX_KILL_LINES - 1));
         strncpy(killFeed[LOKI_MAX_KILL_LINES - 1].text, text, 51);
         killFeed[LOKI_MAX_KILL_LINES - 1].color = color;
+        killFeed[LOKI_MAX_KILL_LINES - 1].timestamp = ts;
     }
     killFeedDirty = true;
 }
@@ -904,14 +915,16 @@ int getKillFeedCount() {
     return killFeedCount;
 }
 
-void getKillFeedLine(int idx, char* buf, int bufLen, uint16_t* color) {
+void getKillFeedLine(int idx, char* buf, int bufLen, uint16_t* color, uint32_t* timestamp) {
     if (idx >= 0 && idx < killFeedCount) {
         strncpy(buf, killFeed[idx].text, bufLen - 1);
         buf[bufLen - 1] = '\0';
         *color = killFeed[idx].color;
+        if (timestamp) *timestamp = killFeed[idx].timestamp;
     } else {
         buf[0] = '\0';
         *color = 0;
+        if (timestamp) *timestamp = 0;
     }
 }
 

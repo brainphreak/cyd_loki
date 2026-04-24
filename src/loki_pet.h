@@ -47,7 +47,7 @@ bool getShowStatusIcon();
 
 // Kill feed / attack log access
 int getKillFeedCount();
-void getKillFeedLine(int idx, char* buf, int bufLen, uint16_t* color);
+void getKillFeedLine(int idx, char* buf, int bufLen, uint16_t* color, uint32_t* timestamp = nullptr);
 void clearKillFeed();
 
 // Theme-aware kill feed colors (recon uses these instead of hardcoded constants)

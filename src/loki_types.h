@@ -70,6 +70,8 @@ struct LokiDevice {
     char     credUser[LOKI_MAX_CRED_USER];       // Last cracked cred (for display)
     char     credPass[LOKI_MAX_CRED_PASS];
     uint8_t  crackedPorts;                       // Bitmask of which ports were cracked
+    uint8_t  attackPhase;                        // 0=discovered, 1=ports_scanned, 2=identified, 3=attacking, 4=done
+    uint8_t  attackPortIdx;                      // Which port index we're attacking (for resume)
 };
 
 // --- Credential log entry (stores ALL cracked creds) ---
@@ -88,7 +90,7 @@ struct LokiScore {
     uint32_t servicesCracked;
     uint32_t filesStolen;
     uint32_t vulnsFound;
-    uint32_t totalScans;
+    uint32_t totalAttacks;
     uint32_t xp;                // Cumulative experience points
 };
 
@@ -96,6 +98,7 @@ struct LokiScore {
 struct LokiKillLine {
     char text[52];
     uint16_t color;
+    uint32_t timestamp;  // Seconds since midnight (from NTP), 0 if no time
 };
 
 // --- UI screen states ---
